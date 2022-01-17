@@ -20,8 +20,10 @@ aafac = 2 # anti-aliasing factor screen to off-screen image
 file1 = open('start.txt','r')
 number_x_entered = readline(2) 
 number_y_entered = readline(4)
-sigma = readline(4) 
+sigma = readline(4)
+sigma_stop = readline(4) 
 r = readline(6)
+m = readline(6)
 bx = readline(8) 
 by = readline(10) 
 epsilon = readline(12) 
@@ -60,12 +62,18 @@ def distances(x,y):
     while i < count:
 
 
-#--------- distances ----------  
+#--------- distances ----------
+def distances(x,y):
+    for i in range(all_part):
+        for j in range(all_part):
+            dist[i][j] = ((x(j)-x(i))**2+(y(j)-y(i))**2)**(1/2)
+#--------- angle ----------  
+while i > sigma_stop:
+    F=LJ_force(p1,p2)
+    angle_rad = math.atan(y-y,x-x)
+    angle_degrees = math.degrees(angle_rad)
+    x_proj = F*math.cos(angle_degrees) #?
 
-if i > sigma_stop
-Force
-angle_rad = math.atan(y-y,x-x)
-angle_degrees = math.degrees(angle_rad)
 
 
 class Particle():
