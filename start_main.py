@@ -1,3 +1,4 @@
+from dis import dis
 from multiprocessing.context import ForkContext
 import pygame
 import random
@@ -23,6 +24,7 @@ number_y_entered = readline(4)
 sigma = readline(4)
 sigma_stop = readline(4) 
 r = readline(6)
+a = readline(6)
 m = readline(6)
 bx = readline(8) 
 by = readline(10) 
@@ -39,15 +41,86 @@ file1.close()
 sigma2 = sigma*sigma
 #e = 5
 dt = 0.1 # simulation time interval between frames
-timesteps = 10 # intermediate invisible steps of length dt/timesteps  
-def LJ_potential_energy():
-    U = 4*epsilon((sigma/r)**12-(sigma/r)**6)
-def LJ_force(p1,p2):
-    rx = p1.x - p2.x
-    ry = p1.y - p2.y
-    r = 
+timesteps = 10 # intermediate invisible steps of length dt/timesteps 
 
-    f = (24/sigma)*epsilon*((sigma/r)**13-(sigma/r)**7) # interaction force
+print('Setting the grid')
+asq3 = a*(3)**(1/2)
+coords = []
+while i in range(number_y_entered): #odd
+    y_odd = []
+    y_odd[i] = sigma+i*asq3
+    print(y_odd)
+   for j in range(number_x_entered):
+       x_odd = []
+       x_odd[j] = sigma+j*a
+       print(x_odd)
+       coords.append((x_odd, y_odd))
+       print(coords)
+
+while i in range(number_y_entered): #even
+   y_even = sigma+asq3/2+y*asq3
+   for j in range(number_x_entered-1):
+       x_even = asq3/2+i*a
+       print(x_even)
+       coords.append((x_even, y_even))
+       print(coords)
+total_particles = len(coords)
+print(total_particles)
+
+#функции это конечно здорово, но зачем, если можно сразу считать? Какой тогда у меня ввод?
+#если они одноразовые, то смысл их определять?
+#--------- distances ----------
+def dist(x,y):
+    distances = []
+    for i in range(total_particles):
+        x_i = coords[i][0]
+        y_i = coords[i][1]
+        for j in range(total_particles):
+            x_j = coords[j][0]
+            y_j = coords[j][1]            
+            distances[i][j] = ((x_j-x_i)**2+(y_j-y_i)**2)**(1/2)
+            if i==j:
+                distances[i][j] = 0
+    print(distances)
+#--------- angles ---------- 
+def angl(x,y):
+    angles =[]
+    for i in range(total_particles):
+        x_i = coords[i][0]
+        y_i = coords[i][1]
+        for j in range(total_particles):
+            x_j = coords[j][0]
+            y_j = coords[j][1]
+            angle_rad = math.atan(y_i-y_j,x_i-x_j)
+            angle_degrees = math.degrees(angle_rad)
+            angles[i][j] = angle_degrees
+            if i==j:
+                angles[i][j] = 0
+
+    print(angles)
+       # x_proj = F*math.cos(angle_degrees) #?
+#---------potential_energy---------- 
+def LJ_potential_energy():
+    U = []
+    for i in range(total_particles):
+        for j in range(total_particles):
+            r = dist[i]
+            U[i][j] = 4*epsilon((sigma/r)**12-(sigma/r)**6)
+            if i==j:
+                U[i][j] = 0
+    print(U)
+
+    
+#--------- interaction force ---------    
+def LJ_force(p1,p2):
+    F = []
+    for i in range(total_particles):
+        for j in range(total_particles):
+            r = distances[i][j] #надо вынести функции за определения
+            F[i][j] = (24/sigma)*epsilon*((sigma/r)**13-(sigma/r)**7) # interaction force
+            if i==j:
+                F[i][j] = 0
+    print(F)
 
     p1.ax += f*(rx/r2)
     p1.ay += f*(ry/r2)
@@ -58,27 +131,26 @@ def LJ_force(p1,p2):
 #    r6s = r2s*r2s*r2s
 #    f = 24*e*( 2/(r6s*r6s) - 1/(r6s) )
 #    f = (12*D)/sigma*((sigma/a)^7-(sigma/a)^13) 
-def distances(x,y):
-    while i < count:
 
-
-#--------- distances ----------
-def distances(x,y):
-    for i in range(all_part):
-        for j in range(all_part):
-            dist[i][j] = ((x(j)-x(i))**2+(y(j)-y(i))**2)**(1/2)
-#--------- angle ----------  
-while i > sigma_stop:
-    F=LJ_force(p1,p2)
-    angle_rad = math.atan(y-y,x-x)
-    angle_degrees = math.degrees(angle_rad)
-    x_proj = F*math.cos(angle_degrees) #?
+#--------- acceleration ----------
 
 
 
 class Particle():
     def __init__(self, x, y, vx, vy, size):
-        #задание координат
+        #задание координатa=2
+#borders x - 2*sigma+(number_x_entered-1)*a 
+#borders y - 2*sigma+number_y_entered*asq3 
+#не совсем понял как работают массивы. поэтому разделю координаты в обоих циклах по разным массивам
+#а затем, объединю их в один координатный массив, чтобы избедать перезаписи и конфликтов
+while i in range(number_y_entered): #odd
+    y_odd = []
+    y_odd[i] = sigma+i*asq3
+    print(y_odd)
+   for j in range(number_x_entered):
+       x_odd = []
+       x_odd[j] = sigma+j*a
+       print(x_odd)
         self.x = x
         self.y = y
         #задание скоростей
@@ -99,39 +171,11 @@ class Particle():
 
 #------------ end class particle ------------
 #------------ start main program ------------
-print('Setting the grid')
-#number_entered = 10 #test!
-#asq3 = 1.732 #test!
-#a = 1 #test!
-#by = 10 #test!
-
-asq3 = a*(3)**(1/2)
-x = 0
-y = 0
-i = 0
-j = 0
-sigma = 0
-#borders x - 2*sigma+(number_x_entered-1)*a 
-#borders y - 2*sigma+number_y_entered*asq3 
-#не совсем понял как работают массивы. поэтому разделю координаты в обоих циклах по разным массивам
-#а затем, объединю их в один координатный массив, чтобы избедать перезаписи и конфликтов
-while i in range(number_y_entered): #odd
-   y_odd = sigma+i*asq3
-   for j in range(number_x_entered):
-       x_odd = sigma+j*a
-   vx, vy = 0., 0.
-   particle = Particle((x, y),(vx,vy), 10) #red to end
-
-while i in range(number_y_entered): #even
-   y_even = sigma+asq3/2+y*asq3
-   for j in range(number_x_entered-1):
-       x_even = asq3/2+i*a
-   vx, vy = 0., 0.
-   particle = Particle((x, y),(vx,vy), 10)
 
 
 
-#--------- acceleration ----------
+
+
 
 
 
