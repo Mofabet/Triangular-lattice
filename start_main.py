@@ -1,3 +1,4 @@
+from multiprocessing.context import ForkContext
 import pygame
 import random
 import numpy as np
@@ -17,12 +18,13 @@ width, height = 500, 500
 aafac = 2 # anti-aliasing factor screen to off-screen image
 
 file1 = open('start.txt','r')
-number_entered = readline(2) 
+number_x_entered = readline(2) 
+number_y_entered = readline(4)
 sigma = readline(4) 
-a = readline(6)
+r = readline(6)
 bx = readline(8) 
 by = readline(10) 
-e = readline(12) 
+epsilon = readline(12) 
 #D = 1
 file1.close()
 #number_entered = input("Enter the number of nodes horizontally")
@@ -36,13 +38,15 @@ sigma2 = sigma*sigma
 #e = 5
 dt = 0.1 # simulation time interval between frames
 timesteps = 10 # intermediate invisible steps of length dt/timesteps  
-
+def LJ_potential_energy():
+    U = 4*epsilon((sigma/r)**12-(sigma/r)**6)
 def LJ_force(p1,p2):
     rx = p1.x - p2.x
     ry = p1.y - p2.y
-    r2 = rx*rx+ry*ry
+    r = 
 
-    f = -(24)*(2*(sigma/a)^14-(sigma/a)^8) # interaction force
+    f = (24/sigma)*epsilon*((sigma/r)**13-(sigma/r)**7) # interaction force
+
     p1.ax += f*(rx/r2)
     p1.ay += f*(ry/r2)
     p2.ax -= f*(rx/r2)
@@ -52,17 +56,17 @@ def LJ_force(p1,p2):
 #    r6s = r2s*r2s*r2s
 #    f = 24*e*( 2/(r6s*r6s) - 1/(r6s) )
 #    f = (12*D)/sigma*((sigma/a)^7-(sigma/a)^13) 
+def distances(x,y):
+    while i < count:
 
-def Verlet_step(particles, h):
-    for p in particles:
-        p.verlet1_update_vx(h); 
-        p.bounce(self)
-    #t += h;
-    for i, p1 in enumerate(particles):
-        for p2 in particles[i+1:]:
-            LJ_force(p1,p2)
-    for p in particles:
-        p.verlet2_update_v(h)
+
+#--------- distances ----------  
+
+if i > sigma_stop
+Force
+angle_rad = math.atan(y-y,x-x)
+angle_degrees = math.degrees(angle_rad)
+
 
 class Particle():
     def __init__(self, x, y, vx, vy, size):
@@ -79,37 +83,11 @@ class Particle():
         self.ax = 0
         self.ay = 0
 
-    def verlet1_update_vx(self,h):
-        self.vx += self.ax*h/2
-        self.vy += self.ay*h/2
-        self.x += self.vx*h
-        self.y += self.vy*h
-        self.ax = 0
-        self.ay = 0
-
-    def verlet2_update_v(self,h):
-        self.vx += self.ax*h/2
-        self.vy += self.ay*h/2
-
     def display(self,screen, aa):
         pygame.draw.circle(screen, self.colour, (int(aa*self.x+0.5), int(aa*self.y+0.5)), aa*self.size, aa*self.thickness)
 
-    def bounce(self):
-        if self.x > width - self.size:
-            self.x = 2*(width - self.size) - self.x
-            self.vx = - self.vx
-
-        elif self.x < self.size:
-            self.x = 2*self.size - self.x
-            self.vx = - self.vx
-
-        if self.y > height - self.size:
-            self.y = 2*(height - self.size) - self.y
-            self.vy = - self.vy
-
-        elif self.y < self.size:
-            self.y = 2*self.size - self.y
-            self.vy = - self.vy            
+    def interaction(self):
+          
 
 #------------ end class particle ------------
 #------------ start main program ------------
@@ -124,33 +102,31 @@ x = 0
 y = 0
 i = 0
 j = 0
+sigma = 0
+#borders x - 2*sigma+(number_x_entered-1)*a 
+#borders y - 2*sigma+number_y_entered*asq3 
+#не совсем понял как работают массивы. поэтому разделю координаты в обоих циклах по разным массивам
+#а затем, объединю их в один координатный массив, чтобы избедать перезаписи и конфликтов
+while i in range(number_y_entered): #odd
+   y_odd = sigma+i*asq3
+   for j in range(number_x_entered):
+       x_odd = sigma+j*a
+   vx, vy = 0., 0.
+   particle = Particle((x, y),(vx,vy), 10) #red to end
 
-while y < by: #odd
-   y += y*asq3
-   for j in range(number_entered):
-       x += j*a
+while i in range(number_y_entered): #even
+   y_even = sigma+asq3/2+y*asq3
+   for j in range(number_x_entered-1):
+       x_even = asq3/2+i*a
    vx, vy = 0., 0.
    particle = Particle((x, y),(vx,vy), 10)
 
-while y < by: #even
-   y += asq3/2+y*asq3
-   for j in range(number_entered-1):
-       x += asq3/2+i*a
-   vx, vy = 0., 0.
-   particle = Particle((x, y),(vx,vy), 10)
 
 
-#for n in range(number_of_particles):
-#    x = 1.0*random.randint(15, width-15)
-#    y = 1.0*random.randint(15, height-15)
-#    vx, vy = 0., 0.
-#    for k in range(6):
-#        vx += random.randint(-10, 10)/2.
-#        vy += random.randint(-10, 10)/2.
-#
-#    particle = Particle((x, y),(vx,vy), 10)
-#
-#    my_particles.append(particle)
+#--------- acceleration ----------
+
+
+
 
 #--------- berendsen thermostat ----------
 
