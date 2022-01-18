@@ -1,6 +1,7 @@
 from audioop import add
 from dis import dis
 from multiprocessing.context import ForkContext
+from xmlrpc.server import DocXMLRPCRequestHandler
 import pygame
 import random
 import numpy as np
@@ -103,7 +104,7 @@ def dist(coords):
     return distances
 
 #x
-def dist(x):
+def dist_x(x):
     x_distances = []
     for i in range(total_particles):
         x_i = coords[i][0]
@@ -115,7 +116,7 @@ def dist(x):
     return x_distances
 
 #y
-def dist(y):
+def dist_y(y):
     y_distances = []
     for i in range(total_particles):
         y_i = coords[i][1]
@@ -143,7 +144,8 @@ def angl(x,y):
             angles_y[i][j] = angle_degrees-90 #y
             if i==j:
                 angles_x[i][j] = 0
-    return angles_x 
+                angles_y[i][j] = 0
+    return angles_x,  angles_y
 
 #x
 #y
@@ -183,9 +185,34 @@ def acc(F,m,angles_x,angles_y):
     for i in range(total_particles):
         for j in range(total_particles):
             acceleration[i][j] = F[i][j]/m
-            x_acceleration[i][j] = math.cos(angles_x[i][j])
-            y_acceleration[i][j] = math.cos(angles_y[i][j])
+            x_acceleration[i][j] = math.cos(angles_x[i][j])*acceleration[i][j]
+            y_acceleration[i][j] = math.cos(angles_y[i][j])*acceleration[i][j]
     return acceleration, x_acceleration, y_acceleration
+
+def full_x_acc():
+    full_x_acceleration = [] #это будет основная матрица ускорений
+    for i in range(total_particles): #начинаем просматривать основную матрицу
+        for j in range(total_particles):
+            full_x_acceleration_temp = 0
+            for k in range(total_particles): #подцикл, который ищет подходящие частицы
+                for l in range(total_particles):
+                    if distances < sigma_stop:
+                        full_x_acceleration_temp += x_acceleration[k][l] #складываем ускорение во временную переменную
+            full_x_acceleration[i][j] = full_x_acceleration_temp #выгружаем результат в матрицу
+            return full_x_acceleration
+            #в теории работает, но я явно что то сделал не так
+
+def full_y_acc():
+    full_y_acceleration = []
+    for i in range(total_particles): 
+        for j in range(total_particles):
+            full_y_acceleration_temp = 0
+            for k in range(total_particles):
+                for l in range(total_particles):
+                    if distances < sigma_stop:
+                        full_y_acceleration_temp += y_acceleration[k][l]
+            full_y_acceleration[i][j] = full_y_acceleration_temp
+            return full_y_acceleration
 
 #--------- berendsen thermostat ----------
 def temp(x, y):
@@ -239,16 +266,45 @@ def borders(x,y):
 #the first cycle will be calculated manually
 #так как температура зависит только от скорости, в первом цикле она не считается
 #
-dist
-LJ_potential_energy
-LJ_force
-
+distances = dist
+x_distances = dist_x
+y_distances = dist_y
+U = LJ_potential_energy
+F = LJ_force
+acceleration = acc
+x_acceleration = acc
+y_acceleration = acc
+x_velocity = 0
+y_velocity = 0
 #iterations
 #old parameters are written to the corresponding variables
+old_coords = coords
+old_acceleration = acceleration
+old_x_acceleration = x_acceleration
+old_y_acceleration = y_acceleration
+old_x_velocity = x_velocity
+old_y_velocity = y_velocity
+x_velocity = old_x_velocity + old_x_acceleration*dt
+y_velocity = old_y_velocity + old_y_acceleration*dt
+#как аккуратно пройтись по всем матрицам и ничго не сломать?
+for i in range(total_particles):
+    coords[i][0] = old_coords[i][0] + (x_velocity*dt)
+    coords[i][1] = old_coords[i][1] + (y_velocity*dt)
+    if coords[i][0] > bx:
+        coords[i][0] = coords[i][0] - bx
+    if coords[i][0] < bx:
+        coords[i][0] = coords[i][0] + bx
+    if coords[i][1] > by:
+        coords[i][1] = coords[i][1] - by
+    if coords[i][1] < by:
+        coords[i][1] = coords[i][1] + by
 
-
-
-
+#функуии видимо не работают, проще сразу вставлять их в основной код
+distances = dist
+x_distances = dist_x
+y_distances = dist_y
+U = LJ_potential_energy
+F = LJ_force
 
 #--------- pygame event loop ----------
 screen = pygame.display.set_mode((width, height))
