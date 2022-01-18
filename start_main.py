@@ -1,3 +1,4 @@
+from audioop import add
 from dis import dis
 from multiprocessing.context import ForkContext
 import pygame
@@ -17,20 +18,23 @@ import math
 background_colour = (255,255,255)
 width, height = 500, 500
 aafac = 2 # anti-aliasing factor screen to off-screen image
+K_b = 1.380649*10**(-23)
 
-file1 = open('start.txt','r')
-number_x_entered = readline(2) 
-number_y_entered = readline(4)
-sigma = readline(4)
-sigma_stop = readline(4) 
-r = readline(6)
-a = readline(6)
-m = readline(6)
-bx = readline(8) 
-by = readline(10) 
-epsilon = readline(12) 
+file = open('start.txt','r')
+number_x_entered = file.readline(2) 
+number_y_entered = file.readline(4)
+sigma = file.readline(4)
+sigma_stop = file.readline(4) 
+r = file.readline(6)
+a = file.readline(6)
+m = file.readline(6)
+bx = file.readline(8) 
+by = file.readline(10) 
+epsilon = file.readline(12) 
+additional_particles = file.readline(12) 
+vacancy = file.readline(12) 
 #D = 1
-file1.close()
+file.close()
 #number_entered = input("Enter the number of nodes horizontally")
 #ax = "Enter the boundary conditions X"
 #ay = "Enter the boundary conditions Y"
@@ -46,31 +50,46 @@ timesteps = 10 # intermediate invisible steps of length dt/timesteps
 print('Setting the grid')
 asq3 = a*(3)**(1/2)
 coords = []
-while i in range(number_y_entered): #odd
+for i in range(number_y_entered): #odd
     y_odd = []
     y_odd[i] = sigma+i*asq3
     print(y_odd)
-   for j in range(number_x_entered):
+    for j in range(number_x_entered):
        x_odd = []
        x_odd[j] = sigma+j*a
        print(x_odd)
        coords.append((x_odd, y_odd))
        print(coords)
 
-while i in range(number_y_entered): #even
-   y_even = sigma+asq3/2+y*asq3
+for i in range(number_y_entered): #even
+   y_even = sigma+asq3/2+y_even*asq3
    for j in range(number_x_entered-1):
-       x_even = asq3/2+i*a
+       x_even = sigma+(a/2)+j*a
        print(x_even)
        coords.append((x_even, y_even))
        print(coords)
-total_particles = len(coords)
+
+#if there are additional particles, it enters them into a system with random coordinates
+if additional_particles > 0: 
+    for i in range(additional_particles):
+        rand_x = random.randint(0, 5)
+        rand_y = random.randint(0, 5)
+        coords.append((rand_x, rand_y))
+
+#if there is a need to remove particles, removes them from a random lattice node
+if vacancy > 0:
+    for i in range(vacancy):
+        coords.pop(random.randrange(len(coords)))
+
+#counting the total number of particles
+total_particles = len(coords) - vacancy + additional_particles
 print(total_particles)
 
 #функции это конечно здорово, но зачем, если можно сразу считать? Какой тогда у меня ввод?
 #если они одноразовые, то смысл их определять?
 #--------- distances ----------
-def dist(x,y):
+#full
+def dist(coords):
     distances = []
     for i in range(total_particles):
         x_i = coords[i][0]
@@ -81,24 +100,53 @@ def dist(x,y):
             distances[i][j] = ((x_j-x_i)**2+(y_j-y_i)**2)**(1/2)
             if i==j:
                 distances[i][j] = 0
-    print(distances)
+    return distances
+
+#x
+def dist(x):
+    x_distances = []
+    for i in range(total_particles):
+        x_i = coords[i][0]
+        for j in range(total_particles):
+            x_j = coords[j][0]            
+            x_distances[i][j] = (x_j-x_i)
+            if i==j:
+                x_distances[i][j] = 0
+    return x_distances
+
+#y
+def dist(y):
+    y_distances = []
+    for i in range(total_particles):
+        y_i = coords[i][1]
+        for j in range(total_particles):
+            y_j = coords[j][1]            
+            y_distances[i][j] = (y_j-y_i)
+            if i==j:
+                y_distances[i][j] = 0
+    return y_distances
+
 #--------- angles ---------- 
+#full
 def angl(x,y):
-    angles =[]
+    angles_x =[]
+    angles_y =[]
     for i in range(total_particles):
         x_i = coords[i][0]
         y_i = coords[i][1]
         for j in range(total_particles):
             x_j = coords[j][0]
             y_j = coords[j][1]
-            angle_rad = math.atan(y_i-y_j,x_i-x_j)
+            angle_rad = math.atan2(y_i-y_j,x_i-x_j) #x
             angle_degrees = math.degrees(angle_rad)
-            angles[i][j] = angle_degrees
+            angles_x[i][j] = angle_degrees
+            angles_y[i][j] = angle_degrees-90 #y
             if i==j:
-                angles[i][j] = 0
+                angles_x[i][j] = 0
+    return angles_x 
 
-    print(angles)
-       # x_proj = F*math.cos(angle_degrees) #?
+#x
+#y
 #---------potential_energy---------- 
 def LJ_potential_energy():
     U = []
@@ -108,11 +156,11 @@ def LJ_potential_energy():
             U[i][j] = 4*epsilon((sigma/r)**12-(sigma/r)**6)
             if i==j:
                 U[i][j] = 0
-    print(U)
+    return U
 
     
 #--------- interaction force ---------    
-def LJ_force(p1,p2):
+def LJ_force(distances):
     F = []
     for i in range(total_particles):
         for j in range(total_particles):
@@ -120,12 +168,7 @@ def LJ_force(p1,p2):
             F[i][j] = (24/sigma)*epsilon*((sigma/r)**13-(sigma/r)**7) # interaction force
             if i==j:
                 F[i][j] = 0
-    print(F)
-
-    p1.ax += f*(rx/r2)
-    p1.ay += f*(ry/r2)
-    p2.ax -= f*(rx/r2)
-    p2.ay -= f*(ry/r2)
+    return F 
 
 #    r2s = r2/sigma2+1
 #    r6s = r2s*r2s*r2s
@@ -133,24 +176,45 @@ def LJ_force(p1,p2):
 #    f = (12*D)/sigma*((sigma/a)^7-(sigma/a)^13) 
 
 #--------- acceleration ----------
+def acc(F,m,angles_x,angles_y):
+    acceleration = []
+    x_acceleration = []
+    y_acceleration = []
+    for i in range(total_particles):
+        for j in range(total_particles):
+            acceleration[i][j] = F[i][j]/m
+            x_acceleration[i][j] = math.cos(angles_x[i][j])
+            y_acceleration[i][j] = math.cos(angles_y[i][j])
+    return acceleration, x_acceleration, y_acceleration
+
+#--------- berendsen thermostat ----------
+def temp(x, y):
+    temperature = []
+    for i in range(total_particles):
+        for j in range(total_particles):
+            energy = (m*(x**2+y**2))/2
+            temperature[i][j] = (2*energy[i][j])/(3*K_b)
+    return temperature
 
 
+def borders(x,y):
+    if x > bx:
+        x = 0
 
-class Particle():
+#--------- rewriting parameters ----------
+#def update_param(x,y):
+#    for i in range(total_particles):
+#        x
+
+#class Particle():
     def __init__(self, x, y, vx, vy, size):
         #задание координатa=2
 #borders x - 2*sigma+(number_x_entered-1)*a 
 #borders y - 2*sigma+number_y_entered*asq3 
 #не совсем понял как работают массивы. поэтому разделю координаты в обоих циклах по разным массивам
 #а затем, объединю их в один координатный массив, чтобы избедать перезаписи и конфликтов
-while i in range(number_y_entered): #odd
-    y_odd = []
-    y_odd[i] = sigma+i*asq3
-    print(y_odd)
-   for j in range(number_x_entered):
-       x_odd = []
-       x_odd[j] = sigma+j*a
-       print(x_odd)
+
+
         self.x = x
         self.y = y
         #задание скоростей
@@ -166,21 +230,23 @@ while i in range(number_y_entered): #odd
     def display(self,screen, aa):
         pygame.draw.circle(screen, self.colour, (int(aa*self.x+0.5), int(aa*self.y+0.5)), aa*self.size, aa*self.thickness)
 
-    def interaction(self):
+#   def interaction(self):
           
 
 #------------ end class particle ------------
 #------------ start main program ------------
 
+#the first cycle will be calculated manually
+#так как температура зависит только от скорости, в первом цикле она не считается
+#
+dist
+LJ_potential_energy
+LJ_force
+
+#iterations
+#old parameters are written to the corresponding variables
 
 
-
-
-
-
-
-
-#--------- berendsen thermostat ----------
 
 
 
@@ -196,7 +262,7 @@ while running:
     offscreen.fill(background_colour)
 
     for k in range(timesteps):
-        Verlet_step(my_particles, dt/timesteps)
+        V_step(my_particles, dt/timesteps)
 
     for particle in my_particles:
         particle.display(offscreen, aafac)
