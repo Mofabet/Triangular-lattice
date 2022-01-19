@@ -5,8 +5,10 @@ from xmlrpc.server import DocXMLRPCRequestHandler
 import pygame
 import random
 import numpy as np
-import matplotlib.pyplot as pyplot
+import matplotlib.pyplot as plt
 import math
+import time
+
 #import torch
 #import torchvision
 #import torch.nn as nn
@@ -20,6 +22,7 @@ background_colour = (255,255,255)
 width, height = 500, 500
 aafac = 2 # anti-aliasing factor screen to off-screen image
 K_b = 1.380649*10**(-23)
+tau = 0.1
 
 file = open('start.txt','r')
 number_x_entered = file.readline(2) 
@@ -34,6 +37,7 @@ by = file.readline(10)
 epsilon = file.readline(12) 
 additional_particles = file.readline(12) 
 vacancy = file.readline(12) 
+termo = file.readline(12) 
 #D = 1
 file.close()
 #number_entered = input("Enter the number of nodes horizontally")
@@ -189,7 +193,7 @@ def acc(F,m,angles_x,angles_y):
             y_acceleration[i][j] = math.cos(angles_y[i][j])*acceleration[i][j]
     return acceleration, x_acceleration, y_acceleration
 
-def full_x_acc():
+def full_x_acc(x_acceleration):
     full_x_acceleration = [] #это будет основная матрица ускорений
     for i in range(total_particles): #начинаем просматривать основную матрицу
         for j in range(total_particles):
@@ -199,10 +203,12 @@ def full_x_acc():
                     if distances < sigma_stop:
                         full_x_acceleration_temp += x_acceleration[k][l] #складываем ускорение во временную переменную
             full_x_acceleration[i][j] = full_x_acceleration_temp #выгружаем результат в матрицу
+            if full_x_acceleration[i][j] != termo:
+                full_x_acceleration[i][j] += tau*()
             return full_x_acceleration
             #в теории работает, но я явно что то сделал не так
 
-def full_y_acc():
+def full_y_acc(y_acceleration,):
     full_y_acceleration = []
     for i in range(total_particles): 
         for j in range(total_particles):
@@ -224,9 +230,8 @@ def temp(x, y):
     return temperature
 
 
-def borders(x,y):
-    if x > bx:
-        x = 0
+
+
 
 #--------- rewriting parameters ----------
 #def update_param(x,y):
@@ -272,20 +277,20 @@ y_distances = dist_y
 U = LJ_potential_energy
 F = LJ_force
 acceleration = acc
-x_acceleration = acc
-y_acceleration = acc
+full_x_acceleration = full_x_acc
+full_y_acceleration = full_y_acc
 x_velocity = 0
 y_velocity = 0
 #iterations
 #old parameters are written to the corresponding variables
 old_coords = coords
 old_acceleration = acceleration
-old_x_acceleration = x_acceleration
-old_y_acceleration = y_acceleration
+old_full_x_acceleration = full_x_acceleration
+old_full_y_acceleration = full_y_acceleration
 old_x_velocity = x_velocity
 old_y_velocity = y_velocity
-x_velocity = old_x_velocity + old_x_acceleration*dt
-y_velocity = old_y_velocity + old_y_acceleration*dt
+x_velocity = old_x_velocity + old_full_x_acceleration*dt
+y_velocity = old_y_velocity + old_full_y_acceleration*dt
 #как аккуратно пройтись по всем матрицам и ничго не сломать?
 for i in range(total_particles):
     coords[i][0] = old_coords[i][0] + (x_velocity*dt)
@@ -305,7 +310,11 @@ x_distances = dist_x
 y_distances = dist_y
 U = LJ_potential_energy
 F = LJ_force
-
+acceleration = acc
+full_x_acceleration = full_x_acc
+full_y_acceleration = full_y_acc
+x_velocity = 0
+y_velocity = 0
 #--------- pygame event loop ----------
 screen = pygame.display.set_mode((width, height))
 offscreen = pygame.Surface((aafac*width, aafac*height))
@@ -330,3 +339,23 @@ pygame.quit()
 file2 = open('xyz.txt','w')
 file2.write('Hello \n World') 
 file2.close() 
+
+X, Y = [], []
+for i in range(130):
+    u.step(0.0006)
+    xd, yd = zip(*u.gather_coords())
+    X.extend(xd)
+    Y.extend(yd)
+plt.figure(figsize=[8, 8])
+plt.scatter(X, Y)
+plt.scatter(*zip(*u.gather_coords()), color="orange")
+plt.show()
+
+velmod = 0
+velocities = []
+for i in range(100):
+    u.step(0.0005)
+    velmod = sum([p.speed.mod() for p in u.points])   # Добавляем сумму модулей скоростей всех точек
+    velocities.append(velmod)
+plt.plot(velocities)
+plt.show()
