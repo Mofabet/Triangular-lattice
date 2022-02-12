@@ -94,7 +94,17 @@ print(total_particles)
 #если они одноразовые, то смысл их определять?
 #--------- distances ----------
 #full
-def dist(coords):
+
+def dist(x,y):
+    distances = []
+    for i in range(total_particles):
+        for j in range(total_particles):        
+            distances[i][j] = ((x[j]-x[i])**2+(y[j]-y[i])**2)**(1/2)
+            if i==j:
+                distances[i][j] = 0
+    return distances
+
+def dist_1(coords):
     distances = []
     for i in range(total_particles):
         x_i = coords[i][0]
@@ -107,33 +117,35 @@ def dist(coords):
                 distances[i][j] = 0
     return distances
 
-#x
-def dist_x(x):
-    x_distances = []
+#xy
+def dist_xy(coords):
+    xy_distances = []
     for i in range(total_particles):
-        x_i = coords[i][0]
+        xy_i = coords[i][0]
         for j in range(total_particles):
-            x_j = coords[j][0]            
-            x_distances[i][j] = (x_j-x_i)
+            xy_j = coords[j][0]            
+            xy_distances[i][j] = (xy_j-xy_i)
             if i==j:
-                x_distances[i][j] = 0
-    return x_distances
-
-#y
-def dist_y(y):
-    y_distances = []
-    for i in range(total_particles):
-        y_i = coords[i][1]
-        for j in range(total_particles):
-            y_j = coords[j][1]            
-            y_distances[i][j] = (y_j-y_i)
-            if i==j:
-                y_distances[i][j] = 0
-    return y_distances
+                xy_distances[i][j] = 0
+    return xy_distances
 
 #--------- angles ---------- 
 #full
 def angl(x,y):
+    angles_x =[]
+    angles_y =[]
+    for i in range(total_particles):
+        for j in range(total_particles):
+            angle_rad = math.atan2(y[i]-y[j],x[i]-x[j]) #x
+            angle_degrees = math.degrees(angle_rad)
+            angles_x[i][j] = angle_degrees
+            angles_y[i][j] = angle_degrees-90 #y
+            if i==j:
+                angles_x[i][j] = 0
+                angles_y[i][j] = 0
+    return angles_x,  angles_y
+
+def angl_1(coords):
     angles_x =[]
     angles_y =[]
     for i in range(total_particles):
@@ -150,11 +162,10 @@ def angl(x,y):
                 angles_x[i][j] = 0
                 angles_y[i][j] = 0
     return angles_x,  angles_y
-
 #x
 #y
 #---------potential_energy---------- 
-def LJ_potential_energy():
+def LJ_potential_energy_1():
     U = []
     for i in range(total_particles):
         for j in range(total_particles):
@@ -164,13 +175,22 @@ def LJ_potential_energy():
                 U[i][j] = 0
     return U
 
+def LJ_potential_energy(r):
+    U = []
+    for i in range(total_particles):
+        for j in range(total_particles):
+            U[i][j] = 4*epsilon((sigma/r[i][j])**12-(sigma/r[i][j])**6)
+            if i==j:
+                U[i][j] = 0
+    return U
+
     
 #--------- interaction force ---------    
-def LJ_force(distances):
+def LJ_force(r):
     F = []
     for i in range(total_particles):
         for j in range(total_particles):
-            r = distances[i][j] #надо вынести функции за определения
+            #r = distances[i][j] #надо вынести функции за определения
             F[i][j] = (24/sigma)*epsilon*((sigma/r)**13-(sigma/r)**7) # interaction force
             if i==j:
                 F[i][j] = 0
@@ -182,7 +202,7 @@ def LJ_force(distances):
 #    f = (12*D)/sigma*((sigma/a)^7-(sigma/a)^13) 
 
 #--------- acceleration ----------
-def acc(F,m,angles_x,angles_y):
+def acc(F,angles_x,angles_y):
     acceleration = []
     x_acceleration = []
     y_acceleration = []
@@ -193,32 +213,31 @@ def acc(F,m,angles_x,angles_y):
             y_acceleration[i][j] = math.cos(angles_y[i][j])*acceleration[i][j]
     return acceleration, x_acceleration, y_acceleration
 
-def full_x_acc(x_acceleration):
-    full_x_acceleration = [] #это будет основная матрица ускорений
+def add_of_acc():
+    x_acc_sum = []
+    y_acc_sum = []
+    for i in range(total_particles):
+        for j in range(total_particles):
+            x_acc_sum = []
+            y_acc_sum = []
+
+    return x_acc_sum, y_acc_sum 
+
+def full_xy_acc(xy_acceleration):
+    full_xy_acceleration = [] #это будет основная матрица ускорений
     for i in range(total_particles): #начинаем просматривать основную матрицу
         for j in range(total_particles):
-            full_x_acceleration_temp = 0
+            full_xy_acceleration_temp = 0
             for k in range(total_particles): #подцикл, который ищет подходящие частицы
                 for l in range(total_particles):
                     if distances < sigma_stop:
-                        full_x_acceleration_temp += x_acceleration[k][l] #складываем ускорение во временную переменную
-            full_x_acceleration[i][j] = full_x_acceleration_temp #выгружаем результат в матрицу
-            if full_x_acceleration[i][j] != termo:
-                full_x_acceleration[i][j] += tau*()
-            return full_x_acceleration
+                        full_xy_acceleration_temp += xy_acceleration[k][l] #складываем ускорение во временную переменную
+            full_xy_acceleration[i][j] = full_xy_acceleration_temp #выгружаем результат в матрицу
+            if full_xy_acceleration[i][j] != termo:
+                full_xy_acceleration[i][j] += tau*()
+    return full_xy_acceleration
             #в теории работает, но я явно что то сделал не так
 
-def full_y_acc(y_acceleration,):
-    full_y_acceleration = []
-    for i in range(total_particles): 
-        for j in range(total_particles):
-            full_y_acceleration_temp = 0
-            for k in range(total_particles):
-                for l in range(total_particles):
-                    if distances < sigma_stop:
-                        full_y_acceleration_temp += y_acceleration[k][l]
-            full_y_acceleration[i][j] = full_y_acceleration_temp
-            return full_y_acceleration
 
 #--------- berendsen thermostat ----------
 def temp(x, y):
@@ -293,8 +312,8 @@ x_velocity = old_x_velocity + old_full_x_acceleration*dt
 y_velocity = old_y_velocity + old_full_y_acceleration*dt
 #как аккуратно пройтись по всем матрицам и ничго не сломать?
 for i in range(total_particles):
-    coords[i][0] = old_coords[i][0] + (x_velocity*dt)
-    coords[i][1] = old_coords[i][1] + (y_velocity*dt)
+    coords[i][0] = old_coords[i][0] + (x_velocity*dt) + (x_acceleration)*dt**2
+    coords[i][1] = old_coords[i][1] + (y_velocity*dt) + (y_acceleration)*dt**2
     if coords[i][0] > bx:
         coords[i][0] = coords[i][0] - bx
     if coords[i][0] < bx:
