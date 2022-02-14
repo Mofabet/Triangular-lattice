@@ -37,7 +37,10 @@ by = file.readline(10)
 epsilon = file.readline(12) 
 additional_particles = file.readline(12) 
 vacancy = file.readline(12) 
-termo = file.readline(12) 
+termo = file.readline(12)
+iter = file.readline(12)
+ 
+
 #D = 1
 file.close()
 #number_entered = input("Enter the number of nodes horizontally")
@@ -95,7 +98,7 @@ print(total_particles)
 #--------- distances ----------
 #full
 
-def dist(x,y):
+def dist_1(x,y):
     distances = []
     for i in range(total_particles):
         for j in range(total_particles):        
@@ -104,7 +107,7 @@ def dist(x,y):
                 distances[i][j] = 0
     return distances
 
-def dist_1(coords):
+def dist(coords):
     distances = []
     for i in range(total_particles):
         x_i = coords[i][0]
@@ -131,7 +134,7 @@ def dist_xy(coords):
 
 #--------- angles ---------- 
 #full
-def angl(x,y):
+def angl_1(x,y):
     angles_x =[]
     angles_y =[]
     for i in range(total_particles):
@@ -145,7 +148,7 @@ def angl(x,y):
                 angles_y[i][j] = 0
     return angles_x,  angles_y
 
-def angl_1(coords):
+def angl(coords):
     angles_x =[]
     angles_y =[]
     for i in range(total_particles):
@@ -218,8 +221,8 @@ def add_of_acc():
     y_acc_sum = []
     for i in range(total_particles):
         for j in range(total_particles):
-            x_acc_sum = []
-            y_acc_sum = []
+            x_acc_sum += x_acceleration[i][j]
+            y_acc_sum += y_acceleration[i][j]
 
     return x_acc_sum, y_acc_sum 
 
@@ -248,133 +251,106 @@ def temp(x, y):
             temperature[i][j] = (2*energy[i][j])/(3*K_b)
     return temperature
 
+def scatterplot(x_data, y_data, x_label="", y_label="", title="", color = "r", yscale_log=False):
 
+    # Create the plot object
+    _, ax = plt.subplots()
 
+    # Plot the data, set the size (s), color and transparency (alpha)
+    # of the points
+    ax.scatter(x_data, y_data, s = 10, color = color, alpha = 0.75)
 
+    if yscale_log == True:
+        ax.set_yscale('log')
 
-#--------- rewriting parameters ----------
-#def update_param(x,y):
-#    for i in range(total_particles):
-#        x
+    # Label the axes and provide a title
+    ax.set_title(title)
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label)
 
-#class Particle():
-    def __init__(self, x, y, vx, vy, size):
-        #задание координатa=2
-#borders x - 2*sigma+(number_x_entered-1)*a 
-#borders y - 2*sigma+number_y_entered*asq3 
-#не совсем понял как работают массивы. поэтому разделю координаты в обоих циклах по разным массивам
-#а затем, объединю их в один координатный массив, чтобы избедать перезаписи и конфликтов
-
-
-        self.x = x
-        self.y = y
-        #задание скоростей
-        self.vx = vx
-        self.vy = vy
-        #для отображения
-        self.size = size
-        self.colour = (0, 0, 255)
-        self.thickness = 2
-        self.ax = 0
-        self.ay = 0
-
-    def display(self,screen, aa):
-        pygame.draw.circle(screen, self.colour, (int(aa*self.x+0.5), int(aa*self.y+0.5)), aa*self.size, aa*self.thickness)
-
-#   def interaction(self):
-          
+    ax.clear() 
 
 #------------ end class particle ------------
+
 #------------ start main program ------------
 
 #the first cycle will be calculated manually
 #так как температура зависит только от скорости, в первом цикле она не считается
 #
-distances = dist
-x_distances = dist_x
-y_distances = dist_y
-U = LJ_potential_energy
-F = LJ_force
-acceleration = acc
-full_x_acceleration = full_x_acc
-full_y_acceleration = full_y_acc
+
+
 x_velocity = 0
 y_velocity = 0
+
+temperature = temp(x_velocity, y_velocity)
+distances = dist(coords)
+x_distances, x_distances = dist_xy(coords)
+U = LJ_potential_energy()
+F = LJ_force
+angles_x, angles_y = angl(coords)
+acceleration, x_acceleration, y_acceleration = acc(F,angles_x,angles_y)
+
+x_acceleration, y_acceleration = add_of_acc(x_acceleration, y_acceleration)
+
+#for plot
+x_label="X-axis"
+y_label="Y-axis"
+title="Dynamics"
+color = "r"
+
+# Create the plot object
+_, ax = plt.subplots()
+
+ax.set_title(title)
+ax.set_xlabel(x_label)
+ax.set_ylabel(y_label)
 #iterations
 #old parameters are written to the corresponding variables
-old_coords = coords
-old_acceleration = acceleration
-old_full_x_acceleration = full_x_acceleration
-old_full_y_acceleration = full_y_acceleration
-old_x_velocity = x_velocity
-old_y_velocity = y_velocity
-x_velocity = old_x_velocity + old_full_x_acceleration*dt
-y_velocity = old_y_velocity + old_full_y_acceleration*dt
-#как аккуратно пройтись по всем матрицам и ничго не сломать?
-for i in range(total_particles):
-    coords[i][0] = old_coords[i][0] + (x_velocity*dt) + (x_acceleration)*dt**2
-    coords[i][1] = old_coords[i][1] + (y_velocity*dt) + (y_acceleration)*dt**2
-    if coords[i][0] > bx:
-        coords[i][0] = coords[i][0] - bx
-    if coords[i][0] < bx:
-        coords[i][0] = coords[i][0] + bx
-    if coords[i][1] > by:
-        coords[i][1] = coords[i][1] - by
-    if coords[i][1] < by:
-        coords[i][1] = coords[i][1] + by
+for i in range(iter):
+    old_coords = coords
+    old_acceleration = acceleration
+    old_x_acceleration = x_acceleration
+    old_y_acceleration = y_acceleration
+    old_x_velocity = x_velocity
+    old_y_velocity = y_velocity
+    
+    #x_velocity = old_x_velocity + old_full_x_acceleration*dt
+    #y_velocity = old_y_velocity + old_full_y_acceleration*dt
+    #как аккуратно пройтись по всем матрицам и ничго не сломать?
+    for i in range(total_particles):
+        ax.clear() 
+        coords[i][0] = old_coords[i][0] + (x_velocity[i]*dt) + (old_x_acceleration[i])*dt**2
+        coords[i][1] = old_coords[i][1] + (y_velocity[i]*dt) + (old_y_acceleration[i])*dt**2
+        if coords[i][0] > bx:
+            coords[i][0] = coords[i][0] - bx
+        if coords[i][0] < bx:
+            coords[i][0] = coords[i][0] + bx
+        if coords[i][1] > by:
+            coords[i][1] = coords[i][1] - by
+        if coords[i][1] < by:
+            coords[i][1] = coords[i][1] + by
+    
+    #функуии видимо не работают, проще сразу вставлять их в основной код
+    distances = dist(coords)
+    x_distances, x_distances = dist_xy(coords)
+    U = LJ_potential_energy(r)
+    F = LJ_force(r)
+    angles_x, angles_y = angl(coords)
+    acceleration, x_acceleration, y_acceleration = acc(F,angles_x,angles_y)
+    
+    for i in range(total_particles):
+        x_velocity[i] = old_x_velocity[i] + ((old_x_acceleration[i] + x_acceleration[i])/2)*dt
+        y_velocity[i] = old_y_velocity[i] + ((old_y_acceleration[i] + y_acceleration[i])/2)*dt
+    
+    temperature = temp(x_velocity, y_velocity)
+    
+    ax.scatter(coords, s = 10, color = color, alpha = 0.75)
+    #--------- pygame event loop ----------
+    
+    
+    # Plot the data, set the size (s), color and transparency (alpha)
+    
+    # of the points
+# Label the axes and provide a title
 
-#функуии видимо не работают, проще сразу вставлять их в основной код
-distances = dist
-x_distances = dist_x
-y_distances = dist_y
-U = LJ_potential_energy
-F = LJ_force
-acceleration = acc
-full_x_acceleration = full_x_acc
-full_y_acceleration = full_y_acc
-x_velocity = 0
-y_velocity = 0
-#--------- pygame event loop ----------
-screen = pygame.display.set_mode((width, height))
-offscreen = pygame.Surface((aafac*width, aafac*height))
 
-running = True
-while running:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-    offscreen.fill(background_colour)
-
-    for k in range(timesteps):
-        V_step(my_particles, dt/timesteps)
-
-    for particle in my_particles:
-        particle.display(offscreen, aafac)
-
-    pygame.transform.smoothscale(offscreen, (width,height), screen)
-    pygame.display.flip()
-pygame.quit()
-
-file2 = open('xyz.txt','w')
-file2.write('Hello \n World') 
-file2.close() 
-
-X, Y = [], []
-for i in range(130):
-    u.step(0.0006)
-    xd, yd = zip(*u.gather_coords())
-    X.extend(xd)
-    Y.extend(yd)
-plt.figure(figsize=[8, 8])
-plt.scatter(X, Y)
-plt.scatter(*zip(*u.gather_coords()), color="orange")
-plt.show()
-
-velmod = 0
-velocities = []
-for i in range(100):
-    u.step(0.0005)
-    velmod = sum([p.speed.mod() for p in u.points])   # Добавляем сумму модулей скоростей всех точек
-    velocities.append(velmod)
-plt.plot(velocities)
-plt.show()
