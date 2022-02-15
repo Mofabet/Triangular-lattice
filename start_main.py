@@ -1,6 +1,5 @@
 from audioop import add
 from dis import dis
-from multiprocessing.context import ForkContext
 from xmlrpc.server import DocXMLRPCRequestHandler
 import pygame
 import random
@@ -24,65 +23,70 @@ aafac = 2 # anti-aliasing factor screen to off-screen image
 K_b = 1.380649*10**(-23)
 tau = 0.1
 
+l=28
 file = open('start.txt','r')
-number_x_entered = file.readline(2) 
-number_y_entered = file.readline(4)
-sigma = file.readline(4)
-sigma_stop = file.readline(4) 
-r = file.readline(6)
-a = file.readline(6)
-m = file.readline(6)
-bx = file.readline(8) 
-by = file.readline(10) 
-epsilon = file.readline(12) 
-additional_particles = file.readline(12) 
-vacancy = file.readline(12) 
-termo = file.readline(12)
-iter = file.readline(12)
- 
+lines = file.readlines()
+for i in range(l):
+    lines[i] = lines[i].rstrip('\n')
+    print(f"Вывод строки: {i}) - {lines}")
 
-#D = 1
+
+number_x_entered = lines[1]
+number_y_entered = lines[3]
+sigma = lines[5]
+sigma_stop = lines[7]
+r = lines[9]
+a = lines[11]
+m = lines[13]
+bx = lines[15]
+by = lines[17]
+epsilon = lines[19] 
+additional_particles = lines[21] 
+vacancy = lines[23] 
+termo = lines[25]
+iterations = lines[27]
+
+number_x_entered = int(number_x_entered)
+number_y_entered = int(number_y_entered)
+sigma = float(sigma)
+sigma_stop = float(sigma_stop)
+r = float(r)
+a = float(a)
+m = float(m)
+bx = float(bx)
+by = float(by)
+epsilon = float(epsilon)
+additional_particles = int(additional_particles)
+vacancy = int(vacancy)
+termo = float(termo )
+iterations = int(iterations)
 file.close()
-#number_entered = input("Enter the number of nodes horizontally")
-#ax = "Enter the boundary conditions X"
-#ay = "Enter the boundary conditions Y"
-#number_of_particles = number_entered*number_entered
-#my_particles = []
 
-#sigma = 10
 sigma2 = sigma*sigma
-#e = 5
 dt = 0.1 # simulation time interval between frames
-timesteps = 10 # intermediate invisible steps of length dt/timesteps 
 
 print('Setting the grid')
 asq3 = a*(3)**(1/2)
 coords = []
+
 for i in range(number_y_entered): #odd
-    y_odd = []
-    y_odd[i] = sigma+i*asq3
-    print(y_odd)
+    y_odd = (sigma+i*asq3)
     for j in range(number_x_entered):
-       x_odd = []
-       x_odd[j] = sigma+j*a
-       print(x_odd)
-       coords.append((x_odd, y_odd))
-       print(coords)
+       x_odd = (sigma+j*a)
+       coords.append([x_odd, y_odd])
 
 for i in range(number_y_entered): #even
-   y_even = sigma+asq3/2+y_even*asq3
-   for j in range(number_x_entered-1):
-       x_even = sigma+(a/2)+j*a
-       print(x_even)
-       coords.append((x_even, y_even))
-       print(coords)
+    y_even = sigma+(asq3/2)+i*asq3
+    for j in range(number_x_entered-1):
+        x_even = sigma+(a/2)+j*a
+        coords.append([x_even, y_even])
 
 #if there are additional particles, it enters them into a system with random coordinates
 if additional_particles > 0: 
     for i in range(additional_particles):
         rand_x = random.randint(0, 5)
         rand_y = random.randint(0, 5)
-        coords.append((rand_x, rand_y))
+        coords.append([rand_x, rand_y])
 
 #if there is a need to remove particles, removes them from a random lattice node
 if vacancy > 0:
@@ -110,27 +114,30 @@ def dist_1(x,y):
 def dist(coords):
     distances = []
     for i in range(total_particles):
+        temp_dist = []
         x_i = coords[i][0]
         y_i = coords[i][1]
         for j in range(total_particles):
             x_j = coords[j][0]
-            y_j = coords[j][1]            
-            distances[i][j] = ((x_j-x_i)**2+(y_j-y_i)**2)**(1/2)
-            if i==j:
-                distances[i][j] = 0
+            y_j = coords[j][1]
+            temp_dist.append(((x_j-x_i)**2+(y_j-y_i)**2)**(1/2))
+        distances.append(temp_dist)
     return distances
 
 #xy
-def dist_xy(coords):
+def dist_xy(coords,xy):
     xy_distances = []
     for i in range(total_particles):
-        xy_i = coords[i][0]
+        temp_dist = []
+        xy_i = coords[i][xy]
         for j in range(total_particles):
-            xy_j = coords[j][0]            
-            xy_distances[i][j] = (xy_j-xy_i)
-            if i==j:
-                xy_distances[i][j] = 0
+            xy_j = coords[j][xy]
+            temp_dist.append(abs(xy_j-xy_i))            
+            #if i==j:
+            #    temp_dist.append(0)
+        xy_distances.append(temp_dist)
     return xy_distances
+
 
 #--------- angles ---------- 
 #full
@@ -181,10 +188,13 @@ def LJ_potential_energy_1():
 def LJ_potential_energy(r):
     U = []
     for i in range(total_particles):
+        temp_u = []
         for j in range(total_particles):
-            U[i][j] = 4*epsilon((sigma/r[i][j])**12-(sigma/r[i][j])**6)
             if i==j:
-                U[i][j] = 0
+                temp_u.append(0)
+            else:
+                temp_u.append(abs(4*epsilon*((sigma/r[i][j])**12-(sigma/r[i][j])**6)))
+        U.append(temp_u)
     return U
 
     
@@ -192,11 +202,13 @@ def LJ_potential_energy(r):
 def LJ_force(r):
     F = []
     for i in range(total_particles):
+        temp_f = []
         for j in range(total_particles):
-            #r = distances[i][j] #надо вынести функции за определения
-            F[i][j] = (24/sigma)*epsilon*((sigma/r)**13-(sigma/r)**7) # interaction force
             if i==j:
-                F[i][j] = 0
+                temp_f.append(0)
+            else:
+                temp_f.append(abs(24/sigma)*epsilon*((sigma/r)**13-(sigma/r)**7))
+        F.append(temp_f)
     return F 
 
 #    r2s = r2/sigma2+1
@@ -282,11 +294,12 @@ def scatterplot(x_data, y_data, x_label="", y_label="", title="", color = "r", y
 x_velocity = 0
 y_velocity = 0
 
-temperature = temp(x_velocity, y_velocity)
+#temperature = temp(x_velocity, y_velocity)
 distances = dist(coords)
-x_distances, x_distances = dist_xy(coords)
-U = LJ_potential_energy()
-F = LJ_force
+x_distances = dist_xy(coords, 0)
+y_distances = dist_xy(coords, 1)
+U = LJ_potential_energy(distances)
+F = LJ_force(distances)
 angles_x, angles_y = angl(coords)
 acceleration, x_acceleration, y_acceleration = acc(F,angles_x,angles_y)
 
@@ -306,7 +319,7 @@ ax.set_xlabel(x_label)
 ax.set_ylabel(y_label)
 #iterations
 #old parameters are written to the corresponding variables
-for i in range(iter):
+for i in range(iterations):
     old_coords = coords
     old_acceleration = acceleration
     old_x_acceleration = x_acceleration
@@ -342,8 +355,8 @@ for i in range(iter):
         x_velocity[i] = old_x_velocity[i] + ((old_x_acceleration[i] + x_acceleration[i])/2)*dt
         y_velocity[i] = old_y_velocity[i] + ((old_y_acceleration[i] + y_acceleration[i])/2)*dt
     
-    temperature = temp(x_velocity, y_velocity)
-    
+    #temperature = temp(x_velocity, y_velocity)
+
     ax.scatter(coords, s = 10, color = color, alpha = 0.75)
     #--------- pygame event loop ----------
     
