@@ -5,7 +5,7 @@
 #sigma
 4
 #sigma_stop
-6
+12
 #r
 5
 #a

@@ -97,20 +97,7 @@ if vacancy > 0:
 total_particles = len(coords) - vacancy + additional_particles
 print(total_particles)
 
-#функции это конечно здорово, но зачем, если можно сразу считать? Какой тогда у меня ввод?
-#если они одноразовые, то смысл их определять?
 #--------- distances ----------
-#full
-
-def dist_1(x,y):
-    distances = []
-    for i in range(total_particles):
-        for j in range(total_particles):        
-            distances[i][j] = ((x[j]-x[i])**2+(y[j]-y[i])**2)**(1/2)
-            if i==j:
-                distances[i][j] = 0
-    return distances
-
 def dist(coords):
     distances = []
     for i in range(total_particles):
@@ -140,25 +127,12 @@ def dist_xy(coords,xy):
 
 
 #--------- angles ---------- 
-#full
-def angl_1(x,y):
-    angles_x =[]
-    angles_y =[]
-    for i in range(total_particles):
-        for j in range(total_particles):
-            angle_rad = math.atan2(y[i]-y[j],x[i]-x[j]) #x
-            angle_degrees = math.degrees(angle_rad)
-            angles_x[i][j] = angle_degrees
-            angles_y[i][j] = angle_degrees-90 #y
-            if i==j:
-                angles_x[i][j] = 0
-                angles_y[i][j] = 0
-    return angles_x,  angles_y
-
 def angl(coords):
     angles_x =[]
     angles_y =[]
     for i in range(total_particles):
+        temp_x_angl = []
+        temp_y_angl = []
         x_i = coords[i][0]
         y_i = coords[i][1]
         for j in range(total_particles):
@@ -166,37 +140,32 @@ def angl(coords):
             y_j = coords[j][1]
             angle_rad = math.atan2(y_i-y_j,x_i-x_j) #x
             angle_degrees = math.degrees(angle_rad)
-            angles_x[i][j] = angle_degrees
-            angles_y[i][j] = angle_degrees-90 #y
-            if i==j:
-                angles_x[i][j] = 0
-                angles_y[i][j] = 0
+            temp_x_angl.append(angle_degrees)
+            temp_y_angl.append(angle_degrees-90)
+        angles_x.append(temp_x_angl)
+        angles_y.append(temp_y_angl)
+            #if i==j:
+            #    angles_x[i][j] = 0
+            #    angles_y[i][j] = 0
     return angles_x,  angles_y
 #x
 #y
-#---------potential_energy---------- 
-def LJ_potential_energy_1():
-    U = []
-    for i in range(total_particles):
-        for j in range(total_particles):
-            r = dist[i]
-            U[i][j] = 4*epsilon((sigma/r)**12-(sigma/r)**6)
-            if i==j:
-                U[i][j] = 0
-    return U
 
+#---------potential_energy---------- 
 def LJ_potential_energy(r):
     U = []
     for i in range(total_particles):
         temp_u = []
         for j in range(total_particles):
-            if i==j:
+            if r[i][j] > sigma_stop:
                 temp_u.append(0)
             else:
-                temp_u.append(abs(4*epsilon*((sigma/r[i][j])**12-(sigma/r[i][j])**6)))
+                if i==j:
+                    temp_u.append(0)
+                else:
+                    temp_u.append(abs(4*epsilon*((sigma/r[i][j])**12-(sigma/r[i][j])**6)))
         U.append(temp_u)
     return U
-
     
 #--------- interaction force ---------    
 def LJ_force(r):
@@ -204,17 +173,15 @@ def LJ_force(r):
     for i in range(total_particles):
         temp_f = []
         for j in range(total_particles):
-            if i==j:
+            if r[i][j] > sigma_stop:
                 temp_f.append(0)
             else:
-                temp_f.append(abs(24/sigma)*epsilon*((sigma/r)**13-(sigma/r)**7))
+                if i==j:
+                    temp_f.append(0) #0 or 0.0?
+                else:
+                    temp_f.append(abs((24/sigma)*epsilon*((sigma/r[i][j])**13-(sigma/r[i][j])**7)))
         F.append(temp_f)
     return F 
-
-#    r2s = r2/sigma2+1
-#    r6s = r2s*r2s*r2s
-#    f = 24*e*( 2/(r6s*r6s) - 1/(r6s) )
-#    f = (12*D)/sigma*((sigma/a)^7-(sigma/a)^13) 
 
 #--------- acceleration ----------
 def acc(F,angles_x,angles_y):
@@ -222,15 +189,22 @@ def acc(F,angles_x,angles_y):
     x_acceleration = []
     y_acceleration = []
     for i in range(total_particles):
+        temp_acceleration = []
+        temp_x_acceleration = []
+        temp_y_acceleration = []
         for j in range(total_particles):
-            acceleration[i][j] = F[i][j]/m
-            x_acceleration[i][j] = math.cos(angles_x[i][j])*acceleration[i][j]
-            y_acceleration[i][j] = math.cos(angles_y[i][j])*acceleration[i][j]
+            temp_acceleration.append(F[i][j]/m)
+            temp_x_acceleration.append(math.cos(angles_x[i][j])*(F[i][j]/m))
+            temp_y_acceleration.append(math.cos(angles_y[i][j])*(F[i][j]/m))
+            acceleration.append(temp_acceleration)
+            x_acceleration.append(temp_x_acceleration)
+            y_acceleration.append(temp_y_acceleration)
     return acceleration, x_acceleration, y_acceleration
 
-def add_of_acc():
+def add_of_acc(x_acceleration, y_acceleration):
     x_acc_sum = []
     y_acc_sum = []
+
     for i in range(total_particles):
         for j in range(total_particles):
             x_acc_sum += x_acceleration[i][j]
