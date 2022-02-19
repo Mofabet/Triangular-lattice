@@ -111,7 +111,7 @@ def dist(coords):
         distances.append(temp_dist)
     return distances
 
-#xy
+#xy 0 = x, 1 = y
 def dist_xy(coords,xy):
     xy_distances = []
     for i in range(total_particles):
@@ -303,7 +303,7 @@ ax.set_title(title)
 ax.set_xlabel(x_label)
 ax.set_ylabel(y_label)
 
-Time = 0
+time = 0
 
 #-----------------------------------------iterations-----------------------------------------
 
@@ -319,8 +319,8 @@ for i in range(iterations):
 
     for i in range(total_particles):
         ax.clear()
-        coords[i][0] = old_coords[i][0] + (old_x_speed[i]*dt) + (old_x_acceleration[i][0])*dt**2
-        coords[i][1] = old_coords[i][1] + (old_y_speed[i]*dt) + (old_y_acceleration[i][0])*dt**2
+        coords[i][0] = old_coords[i][0] + (old_x_speed[i]*dt) + (old_x_acceleration[i])*dt**2
+        coords[i][1] = old_coords[i][1] + (old_y_speed[i]*dt) + (old_y_acceleration[i])*dt**2
         if coords[i][0] > bx:
             coords[i][0] = coords[i][0] - bx
         if coords[i][0] < bx:
@@ -331,14 +331,16 @@ for i in range(iterations):
             coords[i][1] = coords[i][1] + by
     
     distances = dist(coords)
-    x_distances, x_distances = dist_xy(coords)
-    U = LJ_potential_energy(r)
-    F = LJ_force(r)
+    x_distances = dist_xy(coords,0)
+    y_distances = dist_xy(coords,1)
+    U = LJ_potential_energy(distances)
+    F = LJ_force(distances)
     angles_x, angles_y = angl(coords)
 
     acceleration, x_acceleration, y_acceleration = acc(F,angles_x,angles_y)
-    
 
+    x_acceleration, y_acceleration = add_of_acc(x_acceleration, y_acceleration)
+    
     for i in range(total_particles):
         x_speed[i] = old_x_speed[i] + ((old_x_acceleration[i] + x_acceleration[i])/2)*dt
         y_speed[i] = old_y_speed[i] + ((old_y_acceleration[i] + y_acceleration[i])/2)*dt
@@ -346,7 +348,13 @@ for i in range(iterations):
     #temperature = temp(x_speed, y_speed)
     time += dt
 
-    ax.scatter(coords, s = 10, color = color, alpha = 0.75)
+    x_coords = []
+    y_coords = []
+    for i in range(total_particles):
+        x_coords.append(coords[i][0])
+        y_coords.append(coords[i][1])            
+
+    ax.scatter(x_coords, y_coords, s = 10, color = color, alpha = 0.75)
     #--------- pygame event loop ----------
     
     
@@ -354,5 +362,3 @@ for i in range(iterations):
     
     # of the points
 # Label the axes and provide a title
-
-
