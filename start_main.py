@@ -43,7 +43,7 @@ by = lines[17]
 epsilon = lines[19] 
 additional_particles = lines[21] 
 vacancy = lines[23] 
-termo = lines[25]
+termo_temp = lines[25]
 iterations = lines[27]
 
 number_x_entered = int(number_x_entered)
@@ -58,7 +58,7 @@ by = float(by)
 epsilon = float(epsilon)
 additional_particles = int(additional_particles)
 vacancy = int(vacancy)
-termo = float(termo )
+termo_temp = float(termo_temp)
 iterations = int(iterations)
 file.close()
 
@@ -120,8 +120,6 @@ def dist_xy(coords,xy):
         for j in range(total_particles):
             xy_j = coords[j][xy]
             temp_dist.append(abs(xy_j-xy_i))            
-            #if i==j:
-            #    temp_dist.append(0)
         xy_distances.append(temp_dist)
     return xy_distances
 
@@ -157,13 +155,10 @@ def LJ_potential_energy(r):
     for i in range(total_particles):
         temp_u = []
         for j in range(total_particles):
-            if r[i][j] > sigma_stop:
+            if (r[i][j] > sigma_stop or i==j):
                 temp_u.append(0)
             else:
-                if i==j:
-                    temp_u.append(0)
-                else:
-                    temp_u.append(abs(4*epsilon*((sigma/r[i][j])**12-(sigma/r[i][j])**6)))
+                temp_u.append(abs(4*epsilon*((sigma/r[i][j])**12-(sigma/r[i][j])**6)))
         U.append(temp_u)
     return U
     
@@ -173,13 +168,10 @@ def LJ_force(r):
     for i in range(total_particles):
         temp_f = []
         for j in range(total_particles):
-            if r[i][j] > sigma_stop:
+            if (r[i][j] > sigma_stop or i==j):
                 temp_f.append(0)
             else:
-                if i==j:
-                    temp_f.append(0) #0 or 0.0?
-                else:
-                    temp_f.append(abs((24/sigma)*epsilon*((sigma/r[i][j])**13-(sigma/r[i][j])**7)))
+                temp_f.append(abs((24/sigma)*epsilon*((sigma/r[i][j])**13-(sigma/r[i][j])**7)))
         F.append(temp_f)
     return F 
 
@@ -202,42 +194,57 @@ def acc(F,angles_x,angles_y):
     return acceleration, x_acceleration, y_acceleration
 
 def add_of_acc(x_acceleration, y_acceleration):
-    x_acc_sum = []
-    y_acc_sum = []
+        x_acc_sum = []
+        y_acc_sum = []
+        for i in range(total_particles):
+            all_accelerations_for_ix = 0
+            all_accelerations_for_iy = 0
+            for j in range(total_particles):
+                all_accelerations_for_ix += x_acceleration[i][j]
+                all_accelerations_for_iy += y_acceleration[i][j]
+            x_acc_sum.append(all_accelerations_for_ix)
+            y_acc_sum.append(all_accelerations_for_iy)
+        return x_acc_sum, y_acc_sum
 
-    for i in range(total_particles):
-        for j in range(total_particles):
-            x_acc_sum += x_acceleration[i][j]
-            y_acc_sum += y_acceleration[i][j]
+  #  for i in range(total_particles):
+  #      for j in range(total_particles):
+  #          x_acc_sum += x_acceleration[i][j]
+  #          y_acc_sum += y_acceleration[i][j]
 
-    return x_acc_sum, y_acc_sum 
-
-def full_xy_acc(xy_acceleration):
-    full_xy_acceleration = [] #это будет основная матрица ускорений
-    for i in range(total_particles): #начинаем просматривать основную матрицу
-        for j in range(total_particles):
-            full_xy_acceleration_temp = 0
-            for k in range(total_particles): #подцикл, который ищет подходящие частицы
-                for l in range(total_particles):
-                    if distances < sigma_stop:
-                        full_xy_acceleration_temp += xy_acceleration[k][l] #складываем ускорение во временную переменную
-            full_xy_acceleration[i][j] = full_xy_acceleration_temp #выгружаем результат в матрицу
-            if full_xy_acceleration[i][j] != termo:
-                full_xy_acceleration[i][j] += tau*()
-    return full_xy_acceleration
-            #в теории работает, но я явно что то сделал не так
-
+  #  return x_acc_sum, y_acc_sum 
 
 #--------- berendsen thermostat ----------
-def temp(x, y):
+def stop(x_speed, y_speed):
+    for i  in range(total_particles):
+        x_speed.append(0.0)
+        y_speed.append(0.0)
+    return x_speed, y_speed
+
+def fs_energy(x_speed, y_speed):
+    full_sys_energy = 0
+    for i in range(total_particles):
+       full_sys_energy += m*(x_speed[i]**2 + y_speed[i]**2)*10**(-20)/2
+    return full_sys_energy
+
+def sys_temp(x, y):
     temperature = []
     for i in range(total_particles):
+        temp_temp = []
         for j in range(total_particles):
             energy = (m*(x**2+y**2))/2
             temperature[i][j] = (2*energy[i][j])/(3*K_b)
     return temperature
 
-def scatterplot(x_data, y_data, x_label="", y_label="", title="", color = "r", yscale_log=False):
+def temp(energy):
+    temperature = (2*energy)/(3*K_b*total_particles)
+
+def termo_temp(sys_temp):
+    tau = 0.01
+    math.sqrt(1+(dt/tau)*((termo_temp/sys_temp)-1))
+
+
+
+def scatterplot(x_data, y_data, x_label="", y_label="", title="", color = "r"):
 
     # Create the plot object
     _, ax = plt.subplots()
@@ -246,8 +253,6 @@ def scatterplot(x_data, y_data, x_label="", y_label="", title="", color = "r", y
     # of the points
     ax.scatter(x_data, y_data, s = 10, color = color, alpha = 0.75)
 
-    if yscale_log == True:
-        ax.set_yscale('log')
 
     # Label the axes and provide a title
     ax.set_title(title)
@@ -261,14 +266,18 @@ def scatterplot(x_data, y_data, x_label="", y_label="", title="", color = "r", y
 #------------ start main program ------------
 
 #the first cycle will be calculated manually
-#так как температура зависит только от скорости, в первом цикле она не считается
-#
+x_speed = []
+y_speed = []
 
+x_speed, y_speed = stop(x_speed, y_speed)
+#full_sys_energy = 0
+#full_sys_energy = fs_energy(x_speed, y_speed)
 
-x_velocity = 0
-y_velocity = 0
+#for i in range(total_particles):
+#    x_speed = x_speed*termo_temp
+#    x_speed = x_speed*termo_temp
 
-#temperature = temp(x_velocity, y_velocity)
+#temperature = temp(x_speed, y_speed)
 distances = dist(coords)
 x_distances = dist_xy(coords, 0)
 y_distances = dist_xy(coords, 1)
@@ -276,8 +285,10 @@ U = LJ_potential_energy(distances)
 F = LJ_force(distances)
 angles_x, angles_y = angl(coords)
 acceleration, x_acceleration, y_acceleration = acc(F,angles_x,angles_y)
+#here it is calculated how each particle acts on the other
 
 x_acceleration, y_acceleration = add_of_acc(x_acceleration, y_acceleration)
+#and here is the total acceleration for each particle, that is, the sum of the lines
 
 #for plot
 x_label="X-axis"
@@ -291,23 +302,25 @@ _, ax = plt.subplots()
 ax.set_title(title)
 ax.set_xlabel(x_label)
 ax.set_ylabel(y_label)
-#iterations
+
+Time = 0
+
+#-----------------------------------------iterations-----------------------------------------
+
 #old parameters are written to the corresponding variables
 for i in range(iterations):
     old_coords = coords
-    old_acceleration = acceleration
+    #old_acceleration = acceleration
     old_x_acceleration = x_acceleration
     old_y_acceleration = y_acceleration
-    old_x_velocity = x_velocity
-    old_y_velocity = y_velocity
+    old_x_speed = x_speed
+    old_y_speed = y_speed
     
-    #x_velocity = old_x_velocity + old_full_x_acceleration*dt
-    #y_velocity = old_y_velocity + old_full_y_acceleration*dt
-    #как аккуратно пройтись по всем матрицам и ничго не сломать?
+
     for i in range(total_particles):
-        ax.clear() 
-        coords[i][0] = old_coords[i][0] + (x_velocity[i]*dt) + (old_x_acceleration[i])*dt**2
-        coords[i][1] = old_coords[i][1] + (y_velocity[i]*dt) + (old_y_acceleration[i])*dt**2
+        ax.clear()
+        coords[i][0] = old_coords[i][0] + (old_x_speed[i]*dt) + (old_x_acceleration[i][0])*dt**2
+        coords[i][1] = old_coords[i][1] + (old_y_speed[i]*dt) + (old_y_acceleration[i][0])*dt**2
         if coords[i][0] > bx:
             coords[i][0] = coords[i][0] - bx
         if coords[i][0] < bx:
@@ -317,19 +330,21 @@ for i in range(iterations):
         if coords[i][1] < by:
             coords[i][1] = coords[i][1] + by
     
-    #функуии видимо не работают, проще сразу вставлять их в основной код
     distances = dist(coords)
     x_distances, x_distances = dist_xy(coords)
     U = LJ_potential_energy(r)
     F = LJ_force(r)
     angles_x, angles_y = angl(coords)
+
     acceleration, x_acceleration, y_acceleration = acc(F,angles_x,angles_y)
     
+
     for i in range(total_particles):
-        x_velocity[i] = old_x_velocity[i] + ((old_x_acceleration[i] + x_acceleration[i])/2)*dt
-        y_velocity[i] = old_y_velocity[i] + ((old_y_acceleration[i] + y_acceleration[i])/2)*dt
+        x_speed[i] = old_x_speed[i] + ((old_x_acceleration[i] + x_acceleration[i])/2)*dt
+        y_speed[i] = old_y_speed[i] + ((old_y_acceleration[i] + y_acceleration[i])/2)*dt
     
-    #temperature = temp(x_velocity, y_velocity)
+    #temperature = temp(x_speed, y_speed)
+    time += dt
 
     ax.scatter(coords, s = 10, color = color, alpha = 0.75)
     #--------- pygame event loop ----------
