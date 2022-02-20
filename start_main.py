@@ -1,21 +1,12 @@
 from audioop import add
 from dis import dis
 from xmlrpc.server import DocXMLRPCRequestHandler
-import pygame
 import random
 import numpy as np
 import matplotlib.pyplot as plt
 import math
 import time
-
-#import torch
-#import torchvision
-#import torch.nn as nn
-#import torch.optim as opti
-#import torch.nn.functional as funct
-#from torch.utils.data import DataLoader
-#import torchvision.datasets as datasets
-#import torchvision.trsndforms as transforms
+#import seaborn as sns
 
 background_colour = (255,255,255)
 width, height = 500, 500
@@ -142,9 +133,6 @@ def angl(coords):
             temp_y_angl.append(angle_degrees-90)
         angles_x.append(temp_x_angl)
         angles_y.append(temp_y_angl)
-            #if i==j:
-            #    angles_x[i][j] = 0
-            #    angles_y[i][j] = 0
     return angles_x,  angles_y
 #x
 #y
@@ -155,7 +143,7 @@ def LJ_potential_energy(r):
     for i in range(total_particles):
         temp_u = []
         for j in range(total_particles):
-            if (r[i][j] > sigma_stop or i==j):
+            if (r[i][j] > sigma_stop or r[i][j] == 0):
                 temp_u.append(0)
             else:
                 temp_u.append(abs(4*epsilon*((sigma/r[i][j])**12-(sigma/r[i][j])**6)))
@@ -168,7 +156,7 @@ def LJ_force(r):
     for i in range(total_particles):
         temp_f = []
         for j in range(total_particles):
-            if (r[i][j] > sigma_stop or i==j):
+            if (r[i][j] > sigma_stop or r[i][j] == 0):
                 temp_f.append(0)
             else:
                 temp_f.append(abs((24/sigma)*epsilon*((sigma/r[i][j])**13-(sigma/r[i][j])**7)))
@@ -206,13 +194,6 @@ def add_of_acc(x_acceleration, y_acceleration):
             y_acc_sum.append(all_accelerations_for_iy)
         return x_acc_sum, y_acc_sum
 
-  #  for i in range(total_particles):
-  #      for j in range(total_particles):
-  #          x_acc_sum += x_acceleration[i][j]
-  #          y_acc_sum += y_acceleration[i][j]
-
-  #  return x_acc_sum, y_acc_sum 
-
 #--------- berendsen thermostat ----------
 def stop(x_speed, y_speed):
     for i  in range(total_particles):
@@ -241,27 +222,6 @@ def temp(energy):
 def termo_temp(sys_temp):
     tau = 0.01
     math.sqrt(1+(dt/tau)*((termo_temp/sys_temp)-1))
-
-
-
-def scatterplot(x_data, y_data, x_label="", y_label="", title="", color = "r"):
-
-    # Create the plot object
-    _, ax = plt.subplots()
-
-    # Plot the data, set the size (s), color and transparency (alpha)
-    # of the points
-    ax.scatter(x_data, y_data, s = 10, color = color, alpha = 0.75)
-
-
-    # Label the axes and provide a title
-    ax.set_title(title)
-    ax.set_xlabel(x_label)
-    ax.set_ylabel(y_label)
-
-    ax.clear() 
-
-#------------ end class particle ------------
 
 #------------ start main program ------------
 
@@ -296,19 +256,21 @@ y_label="Y-axis"
 title="Dynamics"
 color = "r"
 
+plt.ion()
+
 # Create the plot object
-_, ax = plt.subplots()
-
-ax.set_title(title)
-ax.set_xlabel(x_label)
-ax.set_ylabel(y_label)
-
-time = 0
+#fig, ax = plt.subplots()
+#
+#ax.set_title(title)
+#ax.set_xlabel(x_label)
+#ax.set_ylabel(y_label)
+timer = 0
 
 #-----------------------------------------iterations-----------------------------------------
 
 #old parameters are written to the corresponding variables
 for i in range(iterations):
+    
     old_coords = coords
     #old_acceleration = acceleration
     old_x_acceleration = x_acceleration
@@ -318,16 +280,15 @@ for i in range(iterations):
     
 
     for i in range(total_particles):
-        ax.clear()
         coords[i][0] = old_coords[i][0] + (old_x_speed[i]*dt) + (old_x_acceleration[i])*dt**2
         coords[i][1] = old_coords[i][1] + (old_y_speed[i]*dt) + (old_y_acceleration[i])*dt**2
         if coords[i][0] > bx:
             coords[i][0] = coords[i][0] - bx
-        if coords[i][0] < bx:
+        if coords[i][0] < 0:
             coords[i][0] = coords[i][0] + bx
         if coords[i][1] > by:
             coords[i][1] = coords[i][1] - by
-        if coords[i][1] < by:
+        if coords[i][1] < 0:
             coords[i][1] = coords[i][1] + by
     
     distances = dist(coords)
@@ -346,19 +307,21 @@ for i in range(iterations):
         y_speed[i] = old_y_speed[i] + ((old_y_acceleration[i] + y_acceleration[i])/2)*dt
     
     #temperature = temp(x_speed, y_speed)
-    time += dt
+    timer += dt
 
     x_coords = []
     y_coords = []
     for i in range(total_particles):
         x_coords.append(coords[i][0])
-        y_coords.append(coords[i][1])            
+        y_coords.append(coords[i][1]) 
 
-    ax.scatter(x_coords, y_coords, s = 10, color = color, alpha = 0.75)
-    #--------- pygame event loop ----------
-    
-    
-    # Plot the data, set the size (s), color and transparency (alpha)
-    
-    # of the points
-# Label the axes and provide a title
+
+    plt.clf()
+    #plt.axis([0,50,0,50])
+    plt.scatter(x_coords, y_coords)
+    plt.draw()
+    plt.gcf().canvas.flush_events()
+    time.sleep(0.01)
+
+plt.ioff()
+plt.show()

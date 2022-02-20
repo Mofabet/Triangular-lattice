@@ -19,10 +19,10 @@
 #epsilon
 0.01
 #additional_particles
-0
+3
 #vacancy
-0
+3
 #termo
 300
 #iter
-5
+1000
