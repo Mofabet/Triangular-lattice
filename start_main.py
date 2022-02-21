@@ -14,6 +14,7 @@ aafac = 2 # anti-aliasing factor screen to off-screen image
 K_b = 1.380649*10**(-23)
 tau = 0.1
 
+
 l=28
 file = open('start.txt','r')
 lines = file.readlines()
@@ -75,8 +76,8 @@ for i in range(number_y_entered): #even
 #if there are additional particles, it enters them into a system with random coordinates
 if additional_particles > 0: 
     for i in range(additional_particles):
-        rand_x = random.randint(0, 5)
-        rand_y = random.randint(0, 5)
+        rand_x = random.randint(0, bx)
+        rand_y = random.randint(0, by)
         coords.append([rand_x, rand_y])
 
 #if there is a need to remove particles, removes them from a random lattice node
@@ -207,21 +208,27 @@ def fs_energy(x_speed, y_speed):
        full_sys_energy += m*(x_speed[i]**2 + y_speed[i]**2)*10**(-20)/2
     return full_sys_energy
 
-def sys_temp(x, y):
-    temperature = []
-    for i in range(total_particles):
-        temp_temp = []
-        for j in range(total_particles):
-            energy = (m*(x**2+y**2))/2
-            temperature[i][j] = (2*energy[i][j])/(3*K_b)
-    return temperature
+#def sys_t(x, y):
+#    sys_temp = []
+#    for i in range(total_particles):
+#        temp_temp = []
+#        for j in range(total_particles):
+#            energy = (m*(x**2+y**2))/2 #степень
+#            sys_temp[i][j] = (2*energy[i][j])/(3*K_b)
+#    return sys_temp
 
-def temp(energy):
-    temperature = (2*energy)/(3*K_b*total_particles)
+#def temp(energy):
+#    temperature = (2*energy)/(3*K_b*total_particles)
+#    return temperature
 
-def termo_temp(sys_temp):
-    tau = 0.01
-    math.sqrt(1+(dt/tau)*((termo_temp/sys_temp)-1))
+def termo_t(sys_temp, termo_temp):
+    if sys_temp == 0:
+        return termo_temp #просто чтоб работало
+    else:
+        tau = 0.01
+        termo_temp = math.sqrt(1+(dt/tau)*((termo_temp/sys_temp)-1))
+        return termo_temp
+    
 
 #------------ start main program ------------
 
@@ -231,11 +238,8 @@ y_speed = []
 
 x_speed, y_speed = stop(x_speed, y_speed)
 #full_sys_energy = 0
-#full_sys_energy = fs_energy(x_speed, y_speed)
-
-#for i in range(total_particles):
-#    x_speed = x_speed*termo_temp
-#    x_speed = x_speed*termo_temp
+full_sys_energy = fs_energy(x_speed, y_speed)
+#sys_temp = sys_t()
 
 #temperature = temp(x_speed, y_speed)
 distances = dist(coords)
@@ -306,6 +310,9 @@ for i in range(iterations):
         x_speed[i] = old_x_speed[i] + ((old_x_acceleration[i] + x_acceleration[i])/2)*dt
         y_speed[i] = old_y_speed[i] + ((old_y_acceleration[i] + y_acceleration[i])/2)*dt
     
+    for i in range(total_particles):
+        x_speed[i] = (x_speed[i])*termo_temp
+        y_speed[i] = (y_speed[i])*termo_temp
     #temperature = temp(x_speed, y_speed)
     timer += dt
 
