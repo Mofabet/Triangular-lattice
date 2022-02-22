@@ -5,7 +5,7 @@
 #sigma
 4
 #sigma_stop
-12
+15
 #r
 5
 #a
@@ -19,9 +19,9 @@
 #epsilon
 0.01
 #additional_particles
-3
+0
 #vacancy
-3
+0
 #termo
 300
 #iter

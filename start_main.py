@@ -26,8 +26,8 @@ for i in range(l):
 number_x_entered = lines[1]
 number_y_entered = lines[3]
 sigma = lines[5]
-sigma_stop = lines[7]
-r = lines[9]
+sigma_cutoff = lines[7]
+r_unused = lines[9]
 a = lines[11]
 m = lines[13]
 bx = lines[15]
@@ -41,8 +41,8 @@ iterations = lines[27]
 number_x_entered = int(number_x_entered)
 number_y_entered = int(number_y_entered)
 sigma = float(sigma)
-sigma_stop = float(sigma_stop)
-r = float(r)
+sigma_cutoff = float(sigma_cutoff)
+r_unused = float(r_unused)
 a = float(a)
 m = float(m)
 bx = float(bx)
@@ -62,16 +62,26 @@ asq3 = a*(3)**(1/2)
 coords = []
 
 for i in range(number_y_entered): #odd
-    y_odd = (sigma+i*asq3)
+    y_odd = i*asq3
     for j in range(number_x_entered):
-       x_odd = (sigma+j*a)
+       x_odd = j*a
        coords.append([x_odd, y_odd])
 
 for i in range(number_y_entered): #even
-    y_even = sigma+(asq3/2)+i*asq3
+    y_even = asq3/2+i*asq3
     for j in range(number_x_entered-1):
-        x_even = sigma+(a/2)+j*a
+        x_even = a/2+j*a
         coords.append([x_even, y_even])
+x_max = 0
+y_max = 0
+for i in range(len(coords)):    
+    if coords[i][0] >= x_max:
+        x_max = coords[i][0]
+    if coords[i][1] >= x_max:
+        y_max = coords[i][1]
+
+bx = x_max
+by = y_max
 
 #if there are additional particles, it enters them into a system with random coordinates
 if additional_particles > 0: 
@@ -144,7 +154,7 @@ def LJ_potential_energy(r):
     for i in range(total_particles):
         temp_u = []
         for j in range(total_particles):
-            if (r[i][j] > sigma_stop or r[i][j] == 0):
+            if (r[i][j] > sigma_cutoff or r[i][j] == 0):
                 temp_u.append(0)
             else:
                 temp_u.append(abs(4*epsilon*((sigma/r[i][j])**12-(sigma/r[i][j])**6)))
@@ -157,7 +167,7 @@ def LJ_force(r):
     for i in range(total_particles):
         temp_f = []
         for j in range(total_particles):
-            if (r[i][j] > sigma_stop or r[i][j] == 0):
+            if (r[i][j] > sigma_cutoff or r[i][j] == 0):
                 temp_f.append(0)
             else:
                 temp_f.append(abs((24/sigma)*epsilon*((sigma/r[i][j])**13-(sigma/r[i][j])**7)))
@@ -202,12 +212,20 @@ def stop(x_speed, y_speed):
         y_speed.append(0.0)
     return x_speed, y_speed
 
-def fs_energy(x_speed, y_speed):
+#энергия от скорости
+def fs_energy(x_speed, y_speed): 
     full_sys_energy = 0
     for i in range(total_particles):
-       full_sys_energy += m*(x_speed[i]**2 + y_speed[i]**2)*10**(-20)/2
+       full_sys_energy += (m/2)*(x_speed[i]**2 + y_speed[i]**2)*10**(-20)
     return full_sys_energy
 
+def termo_t(sys_temp, termo_temp):
+    if sys_temp == 0:
+        sys_temp = 0.01        
+    tau = 0.01
+    termo_temp = math.sqrt(1+(dt/tau)*((termo_temp/sys_temp)-1))
+    return termo_temp
+    
 #def sys_t(x, y):
 #    sys_temp = []
 #    for i in range(total_particles):
@@ -220,15 +238,6 @@ def fs_energy(x_speed, y_speed):
 #def temp(energy):
 #    temperature = (2*energy)/(3*K_b*total_particles)
 #    return temperature
-
-def termo_t(sys_temp, termo_temp):
-    if sys_temp == 0:
-        return termo_temp #просто чтоб работало
-    else:
-        tau = 0.01
-        termo_temp = math.sqrt(1+(dt/tau)*((termo_temp/sys_temp)-1))
-        return termo_temp
-    
 
 #------------ start main program ------------
 
@@ -273,7 +282,7 @@ timer = 0
 #-----------------------------------------iterations-----------------------------------------
 
 #old parameters are written to the corresponding variables
-for i in range(iterations):
+for iteration in range(iterations):
     
     old_coords = coords
     #old_acceleration = acceleration
@@ -286,14 +295,18 @@ for i in range(iterations):
     for i in range(total_particles):
         coords[i][0] = old_coords[i][0] + (old_x_speed[i]*dt) + (old_x_acceleration[i])*dt**2
         coords[i][1] = old_coords[i][1] + (old_y_speed[i]*dt) + (old_y_acceleration[i])*dt**2
-        if coords[i][0] > bx:
-            coords[i][0] = coords[i][0] - bx
+        if coords[i][0] >= bx:
+            N_x = abs(coords[i][0]//bx)
+            coords[i][0] = coords[i][0] - bx*N_x
         if coords[i][0] < 0:
-            coords[i][0] = coords[i][0] + bx
-        if coords[i][1] > by:
-            coords[i][1] = coords[i][1] - by
+            N_x = abs(coords[i][0]//bx)
+            coords[i][0] = coords[i][0] + bx*N_x
+        if coords[i][1] >= by:
+            N_y = abs(coords[i][1]//by)
+            coords[i][1] = coords[i][1] - by*N_y
         if coords[i][1] < 0:
-            coords[i][1] = coords[i][1] + by
+            N_y = abs(coords[i][1]//by)
+            coords[i][1] = coords[i][1] + by*N_y
     
     distances = dist(coords)
     x_distances = dist_xy(coords,0)
@@ -325,10 +338,12 @@ for i in range(iterations):
 
     plt.clf()
     #plt.axis([0,50,0,50])
+    plt.xlim([0,bx])
+    plt.ylim([0,by])
     plt.scatter(x_coords, y_coords)
     plt.draw()
     plt.gcf().canvas.flush_events()
-    time.sleep(0.01)
+    time.sleep(1)
 
 plt.ioff()
 plt.show()
