@@ -13,7 +13,7 @@ width, height = 500, 500
 aafac = 2 # anti-aliasing factor screen to off-screen image
 K_b = 1.380649*10**(-23)
 tau = 0.1
-
+MeV = 1.60219*10**(-19)
 
 l=28
 file = open('start.txt','r')
@@ -28,7 +28,7 @@ number_y_entered = lines[3]
 sigma = lines[5]
 sigma_cutoff = lines[7]
 r_unused = lines[9]
-a = lines[11]
+a = lines[11] 
 m = lines[13]
 bx = lines[15]
 by = lines[17]
@@ -40,14 +40,14 @@ iterations = lines[27]
 
 number_x_entered = int(number_x_entered)
 number_y_entered = int(number_y_entered)
-sigma = float(sigma)
-sigma_cutoff = float(sigma_cutoff)
+sigma = float(sigma) * 10**(-10)
+sigma_cutoff = float(sigma_cutoff) * 10**(-10)
 r_unused = float(r_unused)
-a = float(a)
-m = float(m)
-bx = float(bx)
-by = float(by)
-epsilon = float(epsilon)
+a = float(a) * 10**(-10)
+m = float(m) * 1.66054*10**(-27)
+bx = float(bx) * 10**(-10)
+by = float(by) * 10**(-10)
+epsilon = float(epsilon) * 1.60218*10**(-19)
 additional_particles = int(additional_particles)
 vacancy = int(vacancy)
 termo_temp = float(termo_temp)
@@ -55,7 +55,7 @@ iterations = int(iterations)
 file.close()
 
 sigma2 = sigma*sigma
-dt = 0.1 # simulation time interval between frames
+dt = 0.0001 # simulation time interval between frames
 
 print('Setting the grid')
 asq3 = a*(3)**(1/2)
@@ -74,6 +74,7 @@ for i in range(number_y_entered): #even
         coords.append([x_even, y_even])
 x_max = 0
 y_max = 0
+
 for i in range(len(coords)):    
     if coords[i][0] >= x_max:
         x_max = coords[i][0]
@@ -117,7 +118,7 @@ def dist(coords):
 def dist_xy(coords,xy):
     xy_distances = []
     for i in range(total_particles):
-        temp_dist = []
+        temp_dist = [] 
         xy_i = coords[i][xy]
         for j in range(total_particles):
             xy_j = coords[j][xy]
@@ -216,13 +217,13 @@ def stop(x_speed, y_speed):
 def fs_energy(x_speed, y_speed): 
     full_sys_energy = 0
     for i in range(total_particles):
-       full_sys_energy += (m/2)*(x_speed[i]**2 + y_speed[i]**2)*10**(-20)
+       full_sys_energy += (m/2)*(x_speed[i]**2 + y_speed[i]**2)
     return full_sys_energy
 
 def termo_t(sys_temp, termo_temp):
     if sys_temp == 0:
         sys_temp = 0.01        
-    tau = 0.01
+    tau = 0.001
     termo_temp = math.sqrt(1+(dt/tau)*((termo_temp/sys_temp)-1))
     return termo_temp
     
@@ -295,13 +296,13 @@ for iteration in range(iterations):
     for i in range(total_particles):
         coords[i][0] = old_coords[i][0] + (old_x_speed[i]*dt) + (old_x_acceleration[i])*dt**2
         coords[i][1] = old_coords[i][1] + (old_y_speed[i]*dt) + (old_y_acceleration[i])*dt**2
-        if coords[i][0] >= bx:
+        if coords[i][0] > bx:
             N_x = abs(coords[i][0]//bx)
             coords[i][0] = coords[i][0] - bx*N_x
         if coords[i][0] < 0:
             N_x = abs(coords[i][0]//bx)
             coords[i][0] = coords[i][0] + bx*N_x
-        if coords[i][1] >= by:
+        if coords[i][1] > by:
             N_y = abs(coords[i][1]//by)
             coords[i][1] = coords[i][1] - by*N_y
         if coords[i][1] < 0:
