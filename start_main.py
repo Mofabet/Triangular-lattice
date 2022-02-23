@@ -1,5 +1,6 @@
 from audioop import add
 from dis import dis
+import re
 from xmlrpc.server import DocXMLRPCRequestHandler
 import random
 import numpy as np
@@ -8,9 +9,6 @@ import math
 import time
 #import seaborn as sns
 
-background_colour = (255,255,255)
-width, height = 500, 500
-aafac = 2 # anti-aliasing factor screen to off-screen image
 K_b = 1.380649*10**(-23)
 tau = 0.1
 MeV = 1.60219*10**(-19)
@@ -55,7 +53,7 @@ iterations = int(iterations)
 file.close()
 
 sigma2 = sigma*sigma
-dt = 0.0001 # simulation time interval between frames
+dt = 0.001 # simulation time interval between frames
 
 print('Setting the grid')
 asq3 = a*(3)**(1/2)
@@ -69,45 +67,53 @@ for i in range(number_y_entered): #odd
 
 for i in range(number_y_entered): #even
     y_even = asq3/2+i*asq3
-    for j in range(number_x_entered-1):
+    for j in range(number_x_entered):
         x_even = a/2+j*a
         coords.append([x_even, y_even])
+
 x_max = 0
 y_max = 0
-
 for i in range(len(coords)):    
     if coords[i][0] >= x_max:
         x_max = coords[i][0]
     if coords[i][1] >= x_max:
         y_max = coords[i][1]
-
-bx = x_max
-by = y_max
-
+bx = x_max + a
+by = y_max + asq3/2
 #if there are additional particles, it enters them into a system with random coordinates
 if additional_particles > 0: 
     for i in range(additional_particles):
-        rand_x = random.randint(0, bx)
-        rand_y = random.randint(0, by)
+        rand_x = random.uniform(0, bx)
+        rand_y = random.uniform(0, by)
         coords.append([rand_x, rand_y])
-
 #if there is a need to remove particles, removes them from a random lattice node
 if vacancy > 0:
     for i in range(vacancy):
         coords.pop(random.randrange(len(coords)))
-
 #counting the total number of particles
-total_particles = len(coords) - vacancy + additional_particles
-print(total_particles)
+total_particles = len(coords)
+
+#Virtual subsystems
+def virtual_parts(coords):
+    left_virtual_coords = []
+    right_virtual_coords = []
+    upper_virtual_coords = []
+    lower_virtual_coords = []
+    for i in range(total_particles):
+        left_virtual_coords.append([coords[i][0] - bx, coords[i][1]])
+        right_virtual_coords.append([coords[i][0] + bx, coords[i][1]])
+        upper_virtual_coords.append([coords[i][0], coords[i][1] + by])
+        lower_virtual_coords.append([coords[i][0], coords[i][1] - by])
+    return upper_virtual_coords, right_virtual_coords, lower_virtual_coords, left_virtual_coords,
 
 #--------- distances ----------
 def dist(coords):
     distances = []
-    for i in range(total_particles):
+    for i in range(len(coords)):
         temp_dist = []
         x_i = coords[i][0]
         y_i = coords[i][1]
-        for j in range(total_particles):
+        for j in range(len(coords)):
             x_j = coords[j][0]
             y_j = coords[j][1]
             temp_dist.append(((x_j-x_i)**2+(y_j-y_i)**2)**(1/2))
@@ -117,26 +123,39 @@ def dist(coords):
 #xy 0 = x, 1 = y
 def dist_xy(coords,xy):
     xy_distances = []
-    for i in range(total_particles):
+    for i in range(len(coords)):
         temp_dist = [] 
         xy_i = coords[i][xy]
-        for j in range(total_particles):
+        for j in range(len(coords)):
             xy_j = coords[j][xy]
             temp_dist.append(abs(xy_j-xy_i))            
         xy_distances.append(temp_dist)
     return xy_distances
 
+def s_massive(coords, upper_virtual_coords, right_virtual_coords, lower_virtual_coords, left_virtual_coords):
+    supermassive = []
+    for i in range(total_particles):
+        supermassive.append(coords[i])
+    for i in range(total_particles):
+        supermassive.append(upper_virtual_coords[i])
+    for i in range(total_particles):
+        supermassive.append(right_virtual_coords[i])
+    for i in range(total_particles):
+        supermassive.append(lower_virtual_coords[i])
+    for i in range(total_particles):
+        supermassive.append(left_virtual_coords[i])
+    return supermassive
 
 #--------- angles ---------- 
 def angl(coords):
     angles_x =[]
     angles_y =[]
-    for i in range(total_particles):
+    for i in range(len(coords)):
         temp_x_angl = []
         temp_y_angl = []
         x_i = coords[i][0]
         y_i = coords[i][1]
-        for j in range(total_particles):
+        for j in range(len(coords)):
             x_j = coords[j][0]
             y_j = coords[j][1]
             angle_rad = math.atan2(y_i-y_j,x_i-x_j) #x
@@ -151,43 +170,43 @@ def angl(coords):
 
 #---------potential_energy---------- 
 def LJ_potential_energy(r):
-    U = []
-    for i in range(total_particles):
+    Potential = []
+    for i in range(len(coords)):
         temp_u = []
-        for j in range(total_particles):
-            if (r[i][j] > sigma_cutoff or r[i][j] == 0):
-                temp_u.append(0)
+        for j in range(len(coords)):
+            if (r[i][j] > sigma_cutoff or r[i][j] == 0.0):
+                temp_u.append(0.0)
             else:
                 temp_u.append(abs(4*epsilon*((sigma/r[i][j])**12-(sigma/r[i][j])**6)))
-        U.append(temp_u)
-    return U
+        Potential.append(temp_u)
+    return Potential
     
 #--------- interaction force ---------    
 def LJ_force(r):
-    F = []
-    for i in range(total_particles):
+    Force = []
+    for i in range(len(r)):
         temp_f = []
-        for j in range(total_particles):
-            if (r[i][j] > sigma_cutoff or r[i][j] == 0):
-                temp_f.append(0)
+        for j in range(len(r)):
+            if (r[i][j] > sigma_cutoff or r[i][j] == 0.0):
+                temp_f.append(0.0)
             else:
                 temp_f.append(abs((24/sigma)*epsilon*((sigma/r[i][j])**13-(sigma/r[i][j])**7)))
-        F.append(temp_f)
-    return F 
+        Force.append(temp_f)
+    return Force 
 
 #--------- acceleration ----------
-def acc(F,angles_x,angles_y):
+def acc(Force,angles_x,angles_y):
     acceleration = []
     x_acceleration = []
     y_acceleration = []
-    for i in range(total_particles):
+    for i in range(len(Force)):
         temp_acceleration = []
         temp_x_acceleration = []
         temp_y_acceleration = []
-        for j in range(total_particles):
-            temp_acceleration.append(F[i][j]/m)
-            temp_x_acceleration.append(math.cos(angles_x[i][j])*(F[i][j]/m))
-            temp_y_acceleration.append(math.cos(angles_y[i][j])*(F[i][j]/m))
+        for j in range(len(Force)):
+            temp_acceleration.append(Force[i][j]/m)
+            temp_x_acceleration.append(math.cos(angles_x[i][j])*(Force[i][j]/m))
+            temp_y_acceleration.append(math.cos(angles_y[i][j])*(Force[i][j]/m))
             acceleration.append(temp_acceleration)
             x_acceleration.append(temp_x_acceleration)
             y_acceleration.append(temp_y_acceleration)
@@ -196,10 +215,10 @@ def acc(F,angles_x,angles_y):
 def add_of_acc(x_acceleration, y_acceleration):
         x_acc_sum = []
         y_acc_sum = []
-        for i in range(total_particles):
-            all_accelerations_for_ix = 0
-            all_accelerations_for_iy = 0
-            for j in range(total_particles):
+        for i in range(len(x_acceleration)):
+            all_accelerations_for_ix = 0.0
+            all_accelerations_for_iy = 0.0
+            for j in range(len(x_acceleration[i])):
                 all_accelerations_for_ix += x_acceleration[i][j]
                 all_accelerations_for_iy += y_acceleration[i][j]
             x_acc_sum.append(all_accelerations_for_ix)
@@ -215,30 +234,21 @@ def stop(x_speed, y_speed):
 
 #энергия от скорости
 def fs_energy(x_speed, y_speed): 
-    full_sys_energy = 0
+    full_sys_energy = 0.0
     for i in range(total_particles):
        full_sys_energy += (m/2)*(x_speed[i]**2 + y_speed[i]**2)
     return full_sys_energy
 
 def termo_t(sys_temp, termo_temp):
-    if sys_temp == 0:
+    if sys_temp == 0.0:
         sys_temp = 0.01        
     tau = 0.001
     termo_temp = math.sqrt(1+(dt/tau)*((termo_temp/sys_temp)-1))
     return termo_temp
-    
-#def sys_t(x, y):
-#    sys_temp = []
-#    for i in range(total_particles):
-#        temp_temp = []
-#        for j in range(total_particles):
-#            energy = (m*(x**2+y**2))/2 #степень
-#            sys_temp[i][j] = (2*energy[i][j])/(3*K_b)
-#    return sys_temp
 
-#def temp(energy):
-#    temperature = (2*energy)/(3*K_b*total_particles)
-#    return temperature
+def temp(energy):
+    temperature = (2*energy)/(3*K_b*total_particles)
+    return temperature
 
 #------------ start main program ------------
 
@@ -247,20 +257,18 @@ x_speed = []
 y_speed = []
 
 x_speed, y_speed = stop(x_speed, y_speed)
-#full_sys_energy = 0
-full_sys_energy = fs_energy(x_speed, y_speed)
-#sys_temp = sys_t()
 
-#temperature = temp(x_speed, y_speed)
-distances = dist(coords)
-x_distances = dist_xy(coords, 0)
-y_distances = dist_xy(coords, 1)
-U = LJ_potential_energy(distances)
-F = LJ_force(distances)
-angles_x, angles_y = angl(coords)
-acceleration, x_acceleration, y_acceleration = acc(F,angles_x,angles_y)
+upper_virtual_coords, right_virtual_coords, lower_virtual_coords, left_virtual_coords = virtual_parts(coords)
+supermassive = s_massive(coords, upper_virtual_coords, right_virtual_coords, lower_virtual_coords, left_virtual_coords)
+
+distances = dist(supermassive)
+x_distances = dist_xy(supermassive, 0)
+y_distances = dist_xy(supermassive, 1)
+Potential = LJ_potential_energy(distances)
+Force = LJ_force(distances)
+angles_x, angles_y = angl(supermassive)
+acceleration, x_acceleration, y_acceleration = acc(Force,angles_x,angles_y)
 #here it is calculated how each particle acts on the other
-
 x_acceleration, y_acceleration = add_of_acc(x_acceleration, y_acceleration)
 #and here is the total acceleration for each particle, that is, the sum of the lines
 
@@ -271,62 +279,65 @@ title="Dynamics"
 color = "r"
 
 plt.ion()
-
-# Create the plot object
-#fig, ax = plt.subplots()
-#
-#ax.set_title(title)
-#ax.set_xlabel(x_label)
-#ax.set_ylabel(y_label)
 timer = 0
-
 #-----------------------------------------iterations-----------------------------------------
-
 #old parameters are written to the corresponding variables
 for iteration in range(iterations):
-    
-    old_coords = coords
-    #old_acceleration = acceleration
-    old_x_acceleration = x_acceleration
-    old_y_acceleration = y_acceleration
-    old_x_speed = x_speed
-    old_y_speed = y_speed
-    
+    old_coords = []
+    old_supermassive = []
+    old_acceleration = []
+    old_x_acceleration = []
+    old_y_acceleration = []
+    old_x_speed = []
+    old_y_speed = []
 
+    old_coords.extend(coords)
+    old_supermassive.extend(supermassive)
+    old_acceleration.extend(acceleration)
+    old_x_acceleration.extend(x_acceleration)
+    old_y_acceleration.extend(y_acceleration)
+    old_x_speed.extend(x_speed)
+    old_y_speed.extend(y_speed)
+    
     for i in range(total_particles):
         coords[i][0] = old_coords[i][0] + (old_x_speed[i]*dt) + (old_x_acceleration[i])*dt**2
         coords[i][1] = old_coords[i][1] + (old_y_speed[i]*dt) + (old_y_acceleration[i])*dt**2
         if coords[i][0] > bx:
-            N_x = abs(coords[i][0]//bx)
-            coords[i][0] = coords[i][0] - bx*N_x
+            N_x_right = abs(coords[i][0]//bx)
+            coords[i][0] = coords[i][0] - bx*N_x_right
         if coords[i][0] < 0:
-            N_x = abs(coords[i][0]//bx)
-            coords[i][0] = coords[i][0] + bx*N_x
+            N_x_left = abs(coords[i][0]//bx)
+            coords[i][0] = coords[i][0] + bx*N_x_left
         if coords[i][1] > by:
-            N_y = abs(coords[i][1]//by)
-            coords[i][1] = coords[i][1] - by*N_y
+            N_y_up= abs(coords[i][1]//by)
+            coords[i][1] = coords[i][1] - by*N_y_up
         if coords[i][1] < 0:
-            N_y = abs(coords[i][1]//by)
-            coords[i][1] = coords[i][1] + by*N_y
+            N_y_down = abs(coords[i][1]//by)
+            coords[i][1] = coords[i][1] + by*N_y_down
     
-    distances = dist(coords)
-    x_distances = dist_xy(coords,0)
-    y_distances = dist_xy(coords,1)
-    U = LJ_potential_energy(distances)
-    F = LJ_force(distances)
-    angles_x, angles_y = angl(coords)
+    upper_virtual_coords, right_virtual_coords, lower_virtual_coords, left_virtual_coords = virtual_parts(coords)
+    supermassive = s_massive(coords, upper_virtual_coords, right_virtual_coords, lower_virtual_coords, left_virtual_coords)
 
-    acceleration, x_acceleration, y_acceleration = acc(F,angles_x,angles_y)
-
+    distances = dist(supermassive)
+    x_distances = dist_xy(supermassive, 0)
+    y_distances = dist_xy(supermassive, 1)
+    Potential = LJ_potential_energy(distances)
+    Force = LJ_force(distances)
+    angles_x, angles_y = angl(supermassive)
+    acceleration, x_acceleration, y_acceleration = acc(Force,angles_x,angles_y)
     x_acceleration, y_acceleration = add_of_acc(x_acceleration, y_acceleration)
-    
+
     for i in range(total_particles):
         x_speed[i] = old_x_speed[i] + ((old_x_acceleration[i] + x_acceleration[i])/2)*dt
         y_speed[i] = old_y_speed[i] + ((old_y_acceleration[i] + y_acceleration[i])/2)*dt
     
+    full_sys_energy = fs_energy(x_speed, y_speed)
+    sys_temp = temp(full_sys_energy)
+    exchange_temp = termo_t(sys_temp, termo_temp)
+
     for i in range(total_particles):
-        x_speed[i] = (x_speed[i])*termo_temp
-        y_speed[i] = (y_speed[i])*termo_temp
+        x_speed[i] = (x_speed[i])*exchange_temp
+        y_speed[i] = (y_speed[i])*exchange_temp
     #temperature = temp(x_speed, y_speed)
     timer += dt
 
@@ -344,7 +355,7 @@ for iteration in range(iterations):
     plt.scatter(x_coords, y_coords)
     plt.draw()
     plt.gcf().canvas.flush_events()
-    time.sleep(1)
+    time.sleep(0.01)
 
 plt.ioff()
 plt.show()

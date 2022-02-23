@@ -5,7 +5,7 @@
 #sigma Angstrom
 0.5
 #sigma_cutoff Angstrom
-1
+7
 #r
 0.4
 #a Angstrom
@@ -19,9 +19,9 @@
 #epsilon
 0.01
 #additional_particles
-0
+6
 #vacancy
-0
+5
 #termo
 300
 #iter
