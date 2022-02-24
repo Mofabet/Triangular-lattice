@@ -3,25 +3,25 @@
 #number_y_entered
 5
 #sigma Angstrom
-0.5
+2.88
 #sigma_cutoff Angstrom
-7
+8
 #r
 0.4
 #a Angstrom
-3.5
+3.2
 #m uam
-7
+24.305
 #bx Angstrom
 5
 #by Angstrom
 5
 #epsilon
-0.01
+0.27
 #additional_particles
-6
+0
 #vacancy
-5
+0
 #termo
 300
 #iter

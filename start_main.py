@@ -53,7 +53,7 @@ iterations = int(iterations)
 file.close()
 
 sigma2 = sigma*sigma
-dt = 0.001 # simulation time interval between frames
+dt = 0.1 * 10**(-9) # simulation time interval between frames
 
 print('Setting the grid')
 asq3 = a*(3)**(1/2)
@@ -78,7 +78,7 @@ for i in range(len(coords)):
         x_max = coords[i][0]
     if coords[i][1] >= x_max:
         y_max = coords[i][1]
-bx = x_max + a
+bx = x_max + a/2
 by = y_max + asq3/2
 #if there are additional particles, it enters them into a system with random coordinates
 if additional_particles > 0: 
@@ -95,16 +95,24 @@ total_particles = len(coords)
 
 #Virtual subsystems
 def virtual_parts(coords):
-    left_virtual_coords = []
-    right_virtual_coords = []
     upper_virtual_coords = []
+    upright_virtual_coords = []
+    right_virtual_coords = []
+    lowright_virtual_coords = []
     lower_virtual_coords = []
+    lowleft_virtual_coords = []
+    left_virtual_coords = []
+    upleft_virtual_coords = []
     for i in range(total_particles):
-        left_virtual_coords.append([coords[i][0] - bx, coords[i][1]])
-        right_virtual_coords.append([coords[i][0] + bx, coords[i][1]])
         upper_virtual_coords.append([coords[i][0], coords[i][1] + by])
+        upright_virtual_coords.append([coords[i][0] + bx,coords[i][1] + by])
+        right_virtual_coords.append([coords[i][0] + bx, coords[i][1]])
+        lowright_virtual_coords.append([coords[i][0] + bx,coords[i][1] - by])
         lower_virtual_coords.append([coords[i][0], coords[i][1] - by])
-    return upper_virtual_coords, right_virtual_coords, lower_virtual_coords, left_virtual_coords,
+        lowleft_virtual_coords.append([coords[i][0] - bx,coords[i][1] - by])
+        left_virtual_coords.append([coords[i][0] - bx, coords[i][1]])
+        upleft_virtual_coords.append([coords[i][0] - bx,coords[i][1] + by])
+    return upper_virtual_coords, upright_virtual_coords, right_virtual_coords, lowright_virtual_coords, lower_virtual_coords, lowleft_virtual_coords, left_virtual_coords, upleft_virtual_coords
 
 #--------- distances ----------
 def dist(coords):
@@ -132,18 +140,26 @@ def dist_xy(coords,xy):
         xy_distances.append(temp_dist)
     return xy_distances
 
-def s_massive(coords, upper_virtual_coords, right_virtual_coords, lower_virtual_coords, left_virtual_coords):
+def s_massive(coords, upper_virtual_coords, upright_virtual_coords, right_virtual_coords, lowright_virtual_coords, lower_virtual_coords, lowleft_virtual_coords, left_virtual_coords, upleft_virtual_coords):
     supermassive = []
     for i in range(total_particles):
         supermassive.append(coords[i])
     for i in range(total_particles):
         supermassive.append(upper_virtual_coords[i])
     for i in range(total_particles):
+        supermassive.append(upright_virtual_coords[i])
+    for i in range(total_particles):
         supermassive.append(right_virtual_coords[i])
+    for i in range(total_particles):
+        supermassive.append(lowright_virtual_coords[i])
     for i in range(total_particles):
         supermassive.append(lower_virtual_coords[i])
     for i in range(total_particles):
+        supermassive.append(lowleft_virtual_coords[i])
+    for i in range(total_particles):
         supermassive.append(left_virtual_coords[i])
+    for i in range(total_particles):
+        supermassive.append(upleft_virtual_coords[i])
     return supermassive
 
 #--------- angles ---------- 
@@ -258,8 +274,8 @@ y_speed = []
 
 x_speed, y_speed = stop(x_speed, y_speed)
 
-upper_virtual_coords, right_virtual_coords, lower_virtual_coords, left_virtual_coords = virtual_parts(coords)
-supermassive = s_massive(coords, upper_virtual_coords, right_virtual_coords, lower_virtual_coords, left_virtual_coords)
+upper_virtual_coords, upright_virtual_coords, right_virtual_coords, lowright_virtual_coords, lower_virtual_coords, lowleft_virtual_coords, left_virtual_coords, upleft_virtual_coords = virtual_parts(coords)
+supermassive = s_massive(coords, upper_virtual_coords, upright_virtual_coords, right_virtual_coords, lowright_virtual_coords, lower_virtual_coords, lowleft_virtual_coords, left_virtual_coords, upleft_virtual_coords)
 
 distances = dist(supermassive)
 x_distances = dist_xy(supermassive, 0)
@@ -315,8 +331,8 @@ for iteration in range(iterations):
             N_y_down = abs(coords[i][1]//by)
             coords[i][1] = coords[i][1] + by*N_y_down
     
-    upper_virtual_coords, right_virtual_coords, lower_virtual_coords, left_virtual_coords = virtual_parts(coords)
-    supermassive = s_massive(coords, upper_virtual_coords, right_virtual_coords, lower_virtual_coords, left_virtual_coords)
+    upper_virtual_coords, upright_virtual_coords, right_virtual_coords, lowright_virtual_coords, lower_virtual_coords, lowleft_virtual_coords, left_virtual_coords, upleft_virtual_coords = virtual_parts(coords)
+    supermassive = s_massive(coords, upper_virtual_coords, upright_virtual_coords, right_virtual_coords, lowright_virtual_coords, lower_virtual_coords, lowleft_virtual_coords, left_virtual_coords, upleft_virtual_coords)
 
     distances = dist(supermassive)
     x_distances = dist_xy(supermassive, 0)
@@ -352,7 +368,7 @@ for iteration in range(iterations):
     #plt.axis([0,50,0,50])
     plt.xlim([0,bx])
     plt.ylim([0,by])
-    plt.scatter(x_coords, y_coords)
+    plt.scatter(x_coords, y_coords, c = np.random.choice(['red','green','blue','brown','black','yellow']))
     plt.draw()
     plt.gcf().canvas.flush_events()
     time.sleep(0.01)
