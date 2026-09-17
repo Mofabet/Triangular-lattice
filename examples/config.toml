@@ -1,0 +1,29 @@
+# trilattice input deck -- all quantities in metal units
+# (angstrom, eV, atomic mass units, picoseconds, kelvin)
+
+[system]
+nx = 16            # centred-rectangular cells along x  (N = 2*nx*ny atoms)
+ny = 9             # cells along y; ny*sqrt(3) ~ nx keeps the box nearly square
+a = 3.2            # nearest-neighbour distance, A
+mass = 24.305      # u -- magnesium
+vacancies = 0
+interstitials = 0
+binary_fraction = 0.0   # >0 turns on a size-asymmetric glass-forming mixture
+
+[potential]
+epsilon = 0.27     # eV
+sigma = 2.88       # A
+cutoff = 8.0       # A  (2.78 sigma)
+mode = "shifted-force"   # cut | shifted | shifted-force
+
+[run]
+temperature = 300.0
+timestep = 0.002   # ps = 2 fs
+equilibration = 5000
+steps = 20000
+thermostat = "bussi"     # none | berendsen | bussi | langevin | nose-hoover
+tau = 0.2          # ps
+skin = 1.0         # A
+seed = 20240917
+log_every = 50
+sample_every = 100

@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trilattice"
+version = "1.0.0"
+description = "2-D molecular dynamics of a triangular Lennard-Jones lattice"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = ["numpy>=1.24", "matplotlib>=3.7", "scipy>=1.10"]
+
+[project.optional-dependencies]
+fast = ["numba>=0.58"]
+dev = ["pytest>=7", "pytest-cov"]
+
+[project.scripts]
+trilattice = "trilattice.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]
