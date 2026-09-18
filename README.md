@@ -67,10 +67,6 @@ trilattice animate config.toml -T 2800 --save melting.gif --frames 150
 
 ![lattices](figures/lattices.gif)
 
-*Six scenes: each switches lattice, analysis panel, colouring and overlays
-together, holds the fresh structure, then raises the temperature. Reproduce with
-`python examples/record_tour.py`.*
-
 Pick the structure in the deck (`lattice = "square"`), on the command line (`--lattice kagome`), or from the dashboard while it runs — the cell counts are chosen automatically so the particle count stays roughly constant.
 
 | lattice | neighbours | order parameter | ρa² | survives to |
