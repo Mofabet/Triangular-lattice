@@ -175,13 +175,26 @@ def _kernel_numba(pos, lx, ly, pi, pj, types, eps_t, sig2_t, eshift_t, fcut_t, r
 class ForceField:
     """Binds a potential to a box and evaluates it on a pair list."""
 
-    def __init__(self, potential: LennardJones, box: Box, *, use_numba: bool | None = None):
+    def __init__(self, potential: LennardJones, box: Box, *,
+                 use_numba: bool | None = None, three_body=None):
         self.potential = potential
         self.box = box
         self.use_numba = HAVE_NUMBA if use_numba is None else (use_numba and HAVE_NUMBA)
+        #: optional :class:`~trilattice.threebody.ThreeBodyAngular` term, summed
+        #: on top of the pair contribution.  ``None`` means a pure pair potential.
+        self.three_body = three_body
         self.n_evaluations = 0
 
     def __call__(self, positions, pair_i, pair_j, types) -> ForceResult:
+        result = self._pair_term(positions, pair_i, pair_j, types)
+        if self.three_body is None:
+            return result
+        f3, e3, w3, pa3 = self.three_body(positions, self.box, pair_i, pair_j,
+                                          use_numba=self.use_numba)
+        return ForceResult(result.forces + f3, result.energy + e3,
+                           result.virial + w3, result.per_atom_energy + pa3)
+
+    def _pair_term(self, positions, pair_i, pair_j, types) -> ForceResult:
         p = self.potential
         self.n_evaluations += 1
         if self.use_numba:

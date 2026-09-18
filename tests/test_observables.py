@@ -102,3 +102,18 @@ def test_heat_capacity_of_a_harmonic_2d_solid_is_two_kb():
     var_target = 2.0 * n * KB**2 * T**2
     e = rng.normal(0.0, np.sqrt(var_target), size=400000)
     assert obs.heat_capacity_nvt(e, T, n) == pytest.approx(2.0, rel=0.02)
+
+
+def test_structure_factor_k_max_gives_a_square_window_on_any_box():
+    from trilattice import Box
+
+    rng = np.random.default_rng(0)
+    box = Box(40.0, 90.0)                      # deliberately anisotropic
+    pos = rng.uniform(0, 1, size=(200, 2)) * box.lengths
+    kx, ky, s = obs.structure_factor(pos, box, k_max=3.0)
+    assert kx.max() == pytest.approx(3.0, abs=2 * np.pi / box.lx)
+    assert ky.max() == pytest.approx(3.0, abs=2 * np.pi / box.ly)
+    assert s.shape == (kx.size, ky.size)
+    # n_max instead makes the window depend on the box: that is the old bug
+    kx2, ky2, _ = obs.structure_factor(pos, box, n_max=16)
+    assert kx2.max() > 2 * ky2.max()

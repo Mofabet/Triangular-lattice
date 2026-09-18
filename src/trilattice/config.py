@@ -16,13 +16,15 @@ from typing import Any
 
 import numpy as np
 
-from .lattice import Configuration, add_defects, make_binary_mixture, triangular_lattice
+from .lattice import Configuration, add_defects, make_binary_mixture
+from .lattices import LATTICE_NAMES, build_lattice, emptiest_points, lattice_spec
 from .potentials import LennardJones, TruncationMode
 from .thermostats import Thermostat, make_thermostat
 
 
 @dataclass
 class SystemSpec:
+    lattice: str = "triangular"   #: triangular | square | honeycomb | kagome
     nx: int = 16
     ny: int = 9
     a: float = 3.2  #: A, nearest-neighbour distance
@@ -38,6 +40,9 @@ class PotentialSpec:
     sigma: float = 2.88  #: A
     cutoff: float = 8.0  #: A
     mode: TruncationMode = "shifted-force"
+    #: strength of the three-body angular term in eV; 0 disables it.  Anything
+    #: from ~0.25 eV holds the open lattices together (see trilattice.threebody).
+    three_body: float = 0.0
 
 
 @dataclass
@@ -89,19 +94,21 @@ class Settings:
     def build_configuration(self, rng: np.random.Generator | None = None) -> Configuration:
         s = self.system
         rng = np.random.default_rng(self.run.seed) if rng is None else rng
-        cfg = triangular_lattice(s.nx, s.ny, s.a, s.mass)
-        if s.vacancies or s.interstitials:
-            cfg = add_defects(
-                cfg,
-                n_vacancies=s.vacancies,
-                n_interstitials=s.interstitials,
-                a=s.a,
-                rng=rng,
-                min_separation=0.5 * s.a,   # below the a/sqrt(3) hollow-site limit
-            )
+        cfg = build_lattice(s.lattice, s.nx, s.ny, s.a, s.mass)
+        if s.vacancies:
+            cfg = add_defects(cfg, n_vacancies=s.vacancies, rng=rng)
+        if s.interstitials:
+            sites = emptiest_points(cfg.positions, cfg.box, n=s.interstitials)
+            cfg = add_defects(cfg, n_interstitials=s.interstitials, a=s.a, rng=rng,
+                              candidate_sites=sites, min_separation=0.0)
         if s.binary_fraction > 0.0:
             cfg = make_binary_mixture(cfg, s.binary_fraction, rng=rng)
         return cfg
+
+    @property
+    def lattice(self):
+        """The :class:`~trilattice.lattices.LatticeSpec` for this deck."""
+        return lattice_spec(self.system.lattice)
 
     def build_potential(self) -> LennardJones:
         p = self.potential
@@ -110,6 +117,15 @@ class Settings:
 
             return kob_andersen_like(p.epsilon, p.sigma, p.cutoff, mode=p.mode)
         return LennardJones(p.epsilon, p.sigma, p.cutoff, mode=p.mode)
+
+    def build_three_body(self):
+        """The angular term for this deck's lattice, or None when disabled."""
+        if self.potential.three_body <= 0.0:
+            return None
+        from .threebody import ThreeBodyAngular
+
+        return ThreeBodyAngular.for_lattice(self.lattice, self.system.a,
+                                            strength=self.potential.three_body)
 
     def build_thermostat(self, temperature: float | None = None) -> Thermostat:
         t = self.run.temperature if temperature is None else temperature
@@ -185,8 +201,13 @@ DEFAULT_TOML = """\
 # (angstrom, eV, atomic mass units, picoseconds, kelvin)
 
 [system]
-nx = 16            # centred-rectangular cells along x  (N = 2*nx*ny atoms)
-ny = 9             # cells along y; ny*sqrt(3) ~ nx keeps the box nearly square
+lattice = "triangular"   # triangular | square | honeycomb | kagome
+                         # only "triangular" is a stable ground state of an
+                         # isotropic pair potential; the others are metastable
+                         # and collapse towards it when heated -- which is the
+                         # point of being able to switch between them
+nx = 16            # cells along x
+ny = 9             # cells along y
 a = 3.2            # nearest-neighbour distance, A
 mass = 24.305      # u -- magnesium
 vacancies = 0
@@ -198,6 +219,10 @@ epsilon = 0.27     # eV
 sigma = 2.88       # A
 cutoff = 8.0       # A  (2.78 sigma)
 mode = "shifted-force"   # cut | shifted | shifted-force
+three_body = 0.0         # eV; >0 adds a Stillinger-Weber-style angular term that
+                         # holds open lattices (square, honeycomb, kagome) together.
+                         # 0.5 is a good value; 0 leaves a pure pair potential,
+                         # in which only the triangular lattice is stable.
 
 [run]
 temperature = 300.0
@@ -219,4 +244,5 @@ __all__ = [
     "RunSpec",
     "read_legacy_start_txt",
     "DEFAULT_TOML",
+    "LATTICE_NAMES",
 ]

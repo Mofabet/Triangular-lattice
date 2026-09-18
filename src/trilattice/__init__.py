@@ -28,9 +28,20 @@ from .lattice import (
     required_replication,
     triangular_lattice,
 )
+from .lattices import (
+    LATTICE_NAMES,
+    LATTICES,
+    LatticeSpec,
+    build_lattice,
+    emptiest_points,
+    lattice_spec,
+)
 from .neighbors import NeighborList
 from .observables import (
     RDFAccumulator,
+    coordination_by_cutoff,
+    global_psi_n,
+    psi_n,
     coordination_by_delaunay,
     defect_fraction,
     diffusion_coefficient,
@@ -52,6 +63,7 @@ from .thermostats import (
     NoThermostat,
     make_thermostat,
 )
+from .threebody import ThreeBodyAngular, angular_penalty
 from .trajectory import Trajectory
 from .units import KB, FTM2V, MVV2E, ReducedUnits
 
@@ -71,11 +83,19 @@ __all__ = [
     "LennardJones",
     "kob_andersen_like",
     "NeighborList",
+    "LATTICES",
+    "LATTICE_NAMES",
+    "LatticeSpec",
+    "build_lattice",
+    "lattice_spec",
+    "emptiest_points",
     "ForceField",
     "HAVE_NUMBA",
     "Simulation",
     "RunLog",
     "Trajectory",
+    "ThreeBodyAngular",
+    "angular_penalty",
     "Settings",
     "read_legacy_start_txt",
     "NoThermostat",
@@ -86,6 +106,9 @@ __all__ = [
     "make_thermostat",
     "RDFAccumulator",
     "psi6",
+    "psi_n",
+    "global_psi_n",
+    "coordination_by_cutoff",
     "global_psi6",
     "psi6_correlation",
     "structure_factor",

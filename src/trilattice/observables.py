@@ -96,19 +96,36 @@ def coordination_number(g_r: np.ndarray, r: np.ndarray, density: float, r_cut: f
 
 
 def structure_factor(
-    positions: np.ndarray, box: Box, n_max: int = 24
+    positions: np.ndarray, box: Box, n_max: int = 24, k_max: float | None = None
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """S(k) on the discrete reciprocal lattice of the periodic box.
 
-    Returns ``(kx, ky, S)`` with ``S`` of shape ``(2*n_max+1, 2*n_max+1)``.
-    Only wavevectors commensurate with the box are physically meaningful; using
-    a continuous k-grid instead produces spurious ringing.
+    Returns ``(kx, ky, S)``.  Only wavevectors commensurate with the box are
+    physically meaningful; a continuous k-grid produces spurious ringing.
+
+    Parameters
+    ----------
+    n_max
+        Number of allowed wavevectors kept in each direction.  Convenient, but
+        it makes the *extent* of the window depend on the box: the spacing is
+        ``2 pi / L``, so the same ``n_max`` reaches ``2 pi n_max / Lx`` in x and
+        ``2 pi n_max / Ly`` in y.  With an anisotropic box that window is not
+        square, and with a small box it can fall short of the first Bragg peak
+        of the structure being looked at.
+    k_max
+        Preferred: the half-width of the window in inverse angstrom.  The number
+        of wavevectors is then chosen separately for each direction, so the
+        window is square in k regardless of the box shape and always reaches as
+        far as asked.  Overrides ``n_max``.
     """
     n = positions.shape[0]
-    nx = np.arange(-n_max, n_max + 1)
-    ny = np.arange(-n_max, n_max + 1)
-    kx = 2.0 * np.pi * nx / box.lx
-    ky = 2.0 * np.pi * ny / box.ly
+    if k_max is not None:
+        mx = max(1, int(k_max * box.lx / (2.0 * np.pi)))
+        my = max(1, int(k_max * box.ly / (2.0 * np.pi)))
+    else:
+        mx = my = n_max
+    kx = 2.0 * np.pi * np.arange(-mx, mx + 1) / box.lx
+    ky = 2.0 * np.pi * np.arange(-my, my + 1) / box.ly
     phase_x = np.exp(-1j * np.outer(kx, positions[:, 0]))  # (nkx, N)
     phase_y = np.exp(-1j * np.outer(ky, positions[:, 1]))  # (nky, N)
     rho_k = np.einsum("an,bn->ab", phase_x, phase_y)
@@ -130,36 +147,55 @@ def neighbour_pairs_within(box: Box, positions: np.ndarray, cutoff: float):
     return i[m], j[m], d[m]
 
 
-def psi6(positions: np.ndarray, box: Box, cutoff: float) -> np.ndarray:
-    r"""Per-particle hexatic order parameter.
+def psi_n(positions: np.ndarray, box: Box, cutoff: float, n: int = 6) -> np.ndarray:
+    r"""Per-particle ``n``-fold bond-orientational order parameter.
 
     .. math::
-        \psi_6(j) = \frac{1}{n_j}\sum_{k \in \mathrm{nn}(j)} e^{6 i \theta_{jk}}
+        \psi_n(j) = \frac{1}{n_j}\sum_{k \in \mathrm{nn}(j)} e^{i n \theta_{jk}}
 
-    ``|psi_6| = 1`` for a perfect triangular environment and averages to ~0 in an
-    isotropic liquid.  ``cutoff`` should sit in the first minimum of g(r); the
-    canonical choice for a triangular lattice of spacing ``a`` is ``1.35 a``.
+    ``|psi_n| = 1`` when the local environment has ``n``-fold bond symmetry and
+    averages to ~0 in an isotropic liquid.  ``cutoff`` must sit between the first
+    and second neighbour shells.
+
+    **The order must match the lattice.**  ``n = 6`` is 1 on a triangular
+    lattice and exactly 0 on a square one, ``n = 4`` is the reverse, and ``n = 3``
+    separates honeycomb from triangular (which both give 1 at ``n = 6``).  Using
+    the hexatic parameter on a square crystal reports it as molten.
+    :class:`~trilattice.lattices.LatticeSpec` carries the right ``n`` for each
+    structure.
     """
-    n = positions.shape[0]
+    n_particles = positions.shape[0]
     i, j, d = neighbour_pairs_within(box, positions, cutoff)
     theta = np.arctan2(d[:, 1], d[:, 0])
-    phase = np.exp(6j * theta)
-    acc = np.zeros(n, dtype=np.complex128)
-    cnt = np.zeros(n, dtype=np.float64)
-    # theta_ji = theta_ij + pi, and exp(6 i pi) = 1, so both ends take the
-    # same phase -- the six-fold symmetry is exactly what makes psi_6 bond-
-    # direction agnostic.
+    phase = np.exp(1j * n * theta)
+    acc = np.zeros(n_particles, dtype=np.complex128)
+    cnt = np.zeros(n_particles, dtype=np.float64)
+    # Each pair is listed once, so both ends must be credited.  Seen from j the
+    # bond points the other way, theta_ji = theta_ij + pi, and the phase picks up
+    # exp(i n pi) = (-1)^n: identical for even n, opposite in sign for odd n.
+    # That sign is what lets psi_3 tell a honeycomb site (whose three bonds are
+    # 120 degrees apart) from a triangular one, where psi_3 cancels to zero.
     np.add.at(acc, i, phase)
-    np.add.at(acc, j, phase)
+    np.add.at(acc, j, phase * ((-1.0) ** n))
     np.add.at(cnt, i, 1.0)
     np.add.at(cnt, j, 1.0)
     cnt[cnt == 0] = 1.0
     return acc / cnt
 
 
+def psi6(positions: np.ndarray, box: Box, cutoff: float) -> np.ndarray:
+    """Hexatic order parameter: :func:`psi_n` with ``n = 6``."""
+    return psi_n(positions, box, cutoff, 6)
+
+
+def global_psi_n(positions: np.ndarray, box: Box, cutoff: float, n: int = 6) -> float:
+    """``|<psi_n>|`` averaged over particles."""
+    return float(np.abs(np.mean(psi_n(positions, box, cutoff, n))))
+
+
 def global_psi6(positions: np.ndarray, box: Box, cutoff: float) -> float:
     """``|<psi_6>|`` averaged over particles: the hexatic order parameter."""
-    return float(np.abs(np.mean(psi6(positions, box, cutoff))))
+    return global_psi_n(positions, box, cutoff, 6)
 
 
 def psi6_correlation(
@@ -220,10 +256,28 @@ def coordination_by_delaunay(positions: np.ndarray, box: Box) -> np.ndarray:
     return coord
 
 
-def defect_fraction(positions: np.ndarray, box: Box) -> float:
-    """Fraction of particles whose coordination differs from six."""
-    c = coordination_by_delaunay(positions, box)
-    return float(np.mean(c != 6))
+def coordination_by_cutoff(positions: np.ndarray, box: Box, cutoff: float) -> np.ndarray:
+    """Number of neighbours within ``cutoff``.
+
+    The right coordination measure for any lattice whose Delaunay triangulation
+    is degenerate -- a square lattice has no unique triangulation, because every
+    plaquette can be split along either diagonal.
+    """
+    n = positions.shape[0]
+    i, j, _ = neighbour_pairs_within(box, positions, cutoff)
+    return np.bincount(np.concatenate([i, j]), minlength=n).astype(np.int32)
+
+
+def defect_fraction(positions: np.ndarray, box: Box, reference: int = 6,
+                    cutoff: float | None = None) -> float:
+    """Fraction of particles whose coordination differs from ``reference``.
+
+    Uses the Delaunay construction when ``cutoff`` is None (correct for the
+    triangular lattice) and a distance cutoff otherwise.
+    """
+    c = (coordination_by_delaunay(positions, box) if cutoff is None
+         else coordination_by_cutoff(positions, box, cutoff))
+    return float(np.mean(c != reference))
 
 
 # --------------------------------------------------------------------------- #
@@ -287,8 +341,11 @@ __all__ = [
     "RDFAccumulator",
     "coordination_number",
     "structure_factor",
+    "psi_n",
     "psi6",
+    "global_psi_n",
     "global_psi6",
+    "coordination_by_cutoff",
     "psi6_correlation",
     "coordination_by_delaunay",
     "defect_fraction",

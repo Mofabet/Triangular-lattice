@@ -22,6 +22,7 @@ from .analysis import estimate
 from .config import DEFAULT_TOML, Settings
 from .forces import HAVE_NUMBA
 from .lattice import replicate, required_replication, triangular_lattice
+from .lattices import LATTICE_NAMES, lattice_spec
 from .potentials import LennardJones
 from .simulation import Simulation
 from .trajectory import Trajectory
@@ -55,6 +56,7 @@ def _build(settings: Settings, temperature: float | None = None,
     sim = Simulation(
         cfg,
         pot,
+        three_body=settings.build_three_body(),
         timestep=settings.run.timestep,
         thermostat=settings.build_thermostat(t),
         skin=settings.run.skin,
@@ -80,6 +82,10 @@ def cmd_info(args) -> int:
     cfg = s.build_configuration()
     pot = s.build_potential()
     u = ReducedUnits(s.potential.epsilon, s.potential.sigma, s.system.mass)
+    spec = s.lattice
+    print(f"lattice      = {spec.name}: z = {spec.coordination}, "
+          f"order parameter psi_{spec.psi_order}, rho*a^2 = {spec.density_factor:.4f}")
+    print(f"               {spec.note}")
     print(f"N            = {cfg.n_particles}")
     print(f"box          = {cfg.box.lx:.3f} x {cfg.box.ly:.3f} A   (area {cfg.box.area:.1f} A^2)")
     print(f"density      = {cfg.density:.5f} A^-2   ->  rho* = {u.density(cfg.density):.4f}")
@@ -92,12 +98,19 @@ def cmd_info(args) -> int:
           f"= tau/{u.tau / s.run.timestep:.0f}")
     print(f"T            = {s.run.temperature:.1f} K  ->  T* = {u.temperature(s.run.temperature):.4f}")
     print(f"E_lattice    = {pot.lattice_energy(s.system.a):.6f} eV/atom at a = {s.system.a} A")
+    tb = s.build_three_body()
+    print(f"three-body   = {tb.summary() if tb else 'off (pure pair potential)'}")
     print(f"backend      = {'numba' if HAVE_NUMBA else 'numpy'}")
     return 0
 
 
 def cmd_run(args) -> int:
     s = Settings.load(args.config) if args.config else Settings()
+    if getattr(args, "three_body", None) is not None:
+        s.potential.three_body = args.three_body
+    if getattr(args, "lattice", None):
+        s.system.lattice = args.lattice
+        s.system.nx, s.system.ny = lattice_spec(args.lattice).cells_for(2 * s.system.nx * s.system.ny)
     if args.temperature is not None:
         s.run.temperature = args.temperature
     if args.steps is not None:
@@ -133,8 +146,12 @@ def cmd_run(args) -> int:
     print(f"temperature      {t.mean:10.2f} +/- {t.error:.2f} K   (tau_int = {t.tau_int:.1f})")
     print(f"potential energy {e.mean:10.6f} +/- {e.error:.6f} eV/atom")
     print(f"pressure         {p.mean:10.6f} +/- {p.error:.6f} eV/A^2")
-    print(f"|<psi_6>|        {obs.global_psi6(sim.positions, sim.box, 1.35 * a):10.4f}")
-    print(f"defect fraction  {obs.defect_fraction(sim.positions, sim.box):10.4f}")
+    spec = s.lattice
+    cut = spec.cutoff(a)
+    print(f"|<psi_{spec.psi_order}>|        "
+          f"{obs.global_psi_n(sim.positions, sim.box, cut, spec.psi_order):10.4f}")
+    print(f"defect fraction  "
+          f"{obs.defect_fraction(sim.positions, sim.box, spec.coordination, None if spec.use_delaunay() else cut):10.4f}")
     print(f"Lindemann        {obs.lindemann_2d(traj.u, sim.box, a):10.4f}")
     print(f"diffusion        {d_coef:10.5f} A^2/ps")
     perf = sim.performance()
@@ -156,10 +173,17 @@ def cmd_run(args) -> int:
 
 def cmd_scan(args) -> int:
     s = Settings.load(args.config) if args.config else Settings()
+    if getattr(args, "three_body", None) is not None:
+        s.potential.three_body = args.three_body
+    if getattr(args, "lattice", None):
+        s.system.lattice = args.lattice
+        s.system.nx, s.system.ny = lattice_spec(args.lattice).cells_for(2 * s.system.nx * s.system.ny)
     temps = np.linspace(args.t_min, args.t_max, args.n_points)
     a = s.system.a
+    spec = s.lattice
+    cut = spec.cutoff(a)
     rep = tuple(args.replicate) if args.replicate else None
-    print(f"{'T/K':>8} {'E/atom':>12} {'P':>10} {'|psi6|':>8} {'defects':>9} {'D':>10}")
+    print(f"{'T/K':>8} {'E/atom':>12} {'P':>10} {'|psi_n|':>8} {'defects':>9} {'D':>10}")
     sim = None
     for T in temps:
         if sim is None:
@@ -181,8 +205,10 @@ def cmd_scan(args) -> int:
         d_coef = obs.diffusion_coefficient(times, obs.mean_squared_displacement(traj))
         print(
             f"{np.mean(log.temperature):8.1f} {np.mean(log.e_pot) / sim.n_particles:12.6f} "
-            f"{np.mean(log.pressure):10.5f} {obs.global_psi6(sim.positions, sim.box, 1.35 * a):8.4f} "
-            f"{obs.defect_fraction(sim.positions, sim.box):9.4f} {d_coef:10.5f}",
+            f"{np.mean(log.pressure):10.5f} "
+            f"{obs.global_psi_n(sim.positions, sim.box, cut, spec.psi_order):8.4f} "
+            f"{obs.defect_fraction(sim.positions, sim.box, spec.coordination, None if spec.use_delaunay() else cut):9.4f} "
+            f"{d_coef:10.5f}",
             flush=True,
         )
     return 0
@@ -193,6 +219,11 @@ def cmd_animate(args) -> int:
     from .dashboard import Dashboard, DashboardConfig, RATES
 
     s = Settings.load(args.config) if args.config else Settings()
+    if getattr(args, "three_body", None) is not None:
+        s.potential.three_body = args.three_body
+    if args.lattice:
+        s.system.lattice = args.lattice
+        s.system.nx, s.system.ny = lattice_spec(args.lattice).cells_for(2 * s.system.nx * s.system.ny)
     if args.temperature is not None:
         s.run.temperature = args.temperature
     if s.run.thermostat in ("none", "nve"):
@@ -213,6 +244,7 @@ def cmd_animate(args) -> int:
             sim, s.system.a,
             DashboardConfig(rate_index=rate_index, color_mode=args.color,
                             panel=args.panel, history=args.history),
+            lattice=s.system.lattice, settings=s,
         )
     if args.save:
         print(f"recording {args.frames} frames to {args.save} ...")
@@ -282,6 +314,8 @@ def build_parser() -> argparse.ArgumentParser:
     q.add_argument("-n", "--steps", type=int)
     q.add_argument("--xyz", help="write an extended-XYZ trajectory")
     q.add_argument("--npz", help="write a compressed npz trajectory")
+    q.add_argument("--lattice", choices=LATTICE_NAMES)
+    q.add_argument("--three-body", type=float, metavar="LAMBDA")
     q.add_argument("--replicate", nargs=2, type=int, metavar=("NX", "NY"),
                    help="tile the cell before running")
     q.add_argument("--auto-replicate", action="store_true",
@@ -293,6 +327,8 @@ def build_parser() -> argparse.ArgumentParser:
     q.add_argument("--t-min", type=float, default=200.0)
     q.add_argument("--t-max", type=float, default=3000.0)
     q.add_argument("--n-points", type=int, default=15)
+    q.add_argument("--lattice", choices=LATTICE_NAMES)
+    q.add_argument("--three-body", type=float, metavar="LAMBDA")
     q.add_argument("--replicate", nargs=2, type=int, metavar=("NX", "NY"))
     q.add_argument("--auto-replicate", action="store_true")
     q.set_defaults(func=cmd_scan)
@@ -306,6 +342,10 @@ def build_parser() -> argparse.ArgumentParser:
     q.add_argument("--panel", default="g(r)",
                    choices=("g(r)", "S(k)", "MSD", "speeds", "coordination", "T-psi6"),
                    help="which live analysis panel to open with")
+    q.add_argument("--lattice", choices=LATTICE_NAMES,
+                   help="starting lattice (switchable from the dashboard)")
+    q.add_argument("--three-body", type=float, metavar="LAMBDA",
+                   help="angular term strength in eV (0 = pure pair potential)")
     q.add_argument("--minimal", action="store_true",
                    help="the small three-panel viewer instead of the full dashboard")
     q.add_argument("--steps-per-frame", type=int, default=20)

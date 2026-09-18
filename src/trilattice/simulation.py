@@ -74,6 +74,7 @@ class Simulation:
         seed: int | None = None,
         use_numba: bool | None = None,
         remove_drift: bool = True,
+        three_body=None,
     ):
         self.config = configuration.copy()
         self.potential = potential
@@ -90,7 +91,8 @@ class Simulation:
         self.types = self.config.types
 
         self.neighbors = NeighborList(self.box, potential.cutoff, skin=skin)
-        self.forcefield = ForceField(potential, self.box, use_numba=use_numba)
+        self.forcefield = ForceField(potential, self.box, use_numba=use_numba,
+                                     three_body=three_body)
 
         self.step_count = 0
         self.elapsed = 0.0  # ps
@@ -104,6 +106,16 @@ class Simulation:
     @property
     def n_particles(self) -> int:
         return self.positions.shape[0]
+
+    @property
+    def three_body(self):
+        """The angular term, or None.  Assigning re-evaluates the forces."""
+        return self.forcefield.three_body
+
+    @three_body.setter
+    def three_body(self, term) -> None:
+        self.forcefield.three_body = term
+        self._evaluate()
 
     @property
     def dof(self) -> int:

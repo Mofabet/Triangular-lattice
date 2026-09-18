@@ -230,11 +230,14 @@ def add_defects(
     interstitial_type: int = 0,
     rng: np.random.Generator | None = None,
     min_separation: float = 0.0,
+    candidate_sites: np.ndarray | None = None,
 ) -> Configuration:
     """Remove ``n_vacancies`` atoms and insert ``n_interstitials`` new ones.
 
     Interstitials are placed on true hollow sites (see :func:`interstitial_sites`)
     and rejected if they land closer than ``min_separation`` to an existing atom.
+    Pass ``candidate_sites`` to supply positions for a non-triangular lattice --
+    :func:`~trilattice.lattices.emptiest_points` finds them for any structure.
 
     Note the geometric ceiling: a three-fold hollow of a triangular lattice sits
     at ``a/sqrt(3) ~ 0.577 a`` from each of its three neighbours, so any
@@ -258,9 +261,15 @@ def add_defects(
         )
 
     if n_interstitials:
-        if a is None:
-            raise ValueError("lattice constant `a` is required to place interstitials")
-        candidates = interstitial_sites(cfg, a)
+        if candidate_sites is not None:
+            candidates = np.asarray(candidate_sites, dtype=np.float64).copy()
+        elif a is not None:
+            candidates = interstitial_sites(cfg, a)
+        else:
+            raise ValueError(
+                "placing interstitials needs either `a` (triangular hollow sites) "
+                "or explicit `candidate_sites`"
+            )
         rng.shuffle(candidates)
         accepted: list[np.ndarray] = []
         occupied = cfg.positions

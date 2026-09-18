@@ -16,6 +16,7 @@ figures:                    ## regenerate every figure (~9 min on one core)
 	python examples/02_melting.py cool
 	python examples/03_figures.py
 	python examples/04_defects.py
+	python examples/05_lattices.py
 
 bench:
 	trilattice bench
