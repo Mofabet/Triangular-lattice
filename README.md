@@ -6,11 +6,13 @@
 
 ## Install
 
-```bash
-git clone <this repo> && cd trilattice
-pip install -e ".[dev,fast]"      # fast = numba (5x speedup), dev = pytest
-```
+**For development (recommended — includes tests and numba acceleration):**
 
+```bash
+git clone https://github.com/Mofabet/Triangular-lattice.git
+cd trilattice
+pip install -e ".[dev,fast]"
+```
 Requires Python ≥ 3.11, NumPy, SciPy, Matplotlib. Numba is optional.
 
 ## Quick start
